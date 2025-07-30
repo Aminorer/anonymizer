@@ -3,7 +3,7 @@
   "name": "anonymiseur-juridique-rgpd",
   "builds": [
     {
-      "src": "api/*.py", 
+      "src": "api/*.py",
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "50mb",
@@ -18,14 +18,29 @@
       }
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)", 
-      "dest": "/api/main.py"
+      "source": "/api/(.*)",
+      "destination": "/api/main.py"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "X-RGPD-Compliant", "value": "true" },
+        { "key": "X-Processing-Location", "value": "vercel_serverless" },
+        { "key": "X-Data-Retention", "value": "0_minutes" },
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }
+      ]
     },
     {
-      "src": "/(.*)",
-      "dest": "/dist/$1"
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" }
+      ]
     }
   ],
   "env": {
@@ -44,56 +59,10 @@
   "installCommand": "npm install && pip install -r api/requirements.txt",
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
-  "rewrites": [
-    {
-      "source": "/api/(.*)", 
-      "destination": "/api/main.py"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "X-RGPD-Compliant",
-          "value": "true"
-        },
-        {
-          "key": "X-Processing-Location", 
-          "value": "vercel_serverless"
-        },
-        {
-          "key": "X-Data-Retention",
-          "value": "0_minutes"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options", 
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        }
-      ]
-    }
-  ],
   "crons": [
     {
       "path": "/api/cleanup",
-      "schedule": "0 */15 * * * *"
+      "schedule":  "0 8 * * *"
     }
   ]
 }
