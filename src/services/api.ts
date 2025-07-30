@@ -10,7 +10,7 @@ const api = axios.create({
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  (error: any) => {
     if (error.response?.data?.detail) {
       throw new Error(error.response.data.detail);
     }
