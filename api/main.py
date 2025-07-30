@@ -8,10 +8,10 @@ import logging
 from datetime import datetime
 import uuid
 
-from .analyzer import hybrid_analyzer, Entity
-from .processor import DocumentProcessor
-from .session import SessionManager
-from .models import (
+from analyzer import hybrid_analyzer, Entity
+from processor import DocumentProcessor
+from session import SessionManager
+from models import (
     AnalyzeResponse, EntityStats, CustomEntity, 
     ENTITY_TYPES, EntityTypeEnum
 )

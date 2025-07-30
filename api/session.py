@@ -8,7 +8,7 @@ import logging
 import threading
 import time
 
-from .models import Entity, AuditLog, RGPD_CONFIG
+from models import Entity, AuditLog, RGPD_CONFIG
 
 logger = logging.getLogger(__name__)
 
