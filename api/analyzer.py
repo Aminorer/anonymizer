@@ -84,7 +84,7 @@ class HybridAnalyzer:
                 # SIREN : 9 chiffres (avec validation checksum)
                 r'\b(?:SIREN\s*:?\s*)?(\d{3}[\s\.]?\d{3}[\s\.]?\d{3})\b',
                 # RCS avec numéro d'identification
-                r'RCS\s+[A-Z][a-zA-Z-\s]+\s+(\d{3}[\s\.]?\d{3}[\s\.]?\d{3}(?:[\s\.]?\d{5})?)',
+                r'RCS\s+[A-Z][a-zA-Z\s-]+\s+(\d{3}[\s\.]?\d{3}[\s\.]?\d{3}(?:[\s\.]?\d{5})?)',
                 # Numéro TVA intracommunautaire français
                 r'(?:n°\s*TVA\s*:?\s*|TVA\s+intra\w*\s*:?\s*)?FR\s*(\d{2}\s?\d{9})',
                 # Code APE/NAF
@@ -98,11 +98,11 @@ class HybridAnalyzer:
             ],
             'ADRESSE': [
                 # Adresses françaises complètes avec numéro + type voie + nom + ville
-                r'\d+(?:\s+(?:bis|ter|quater))?\s+(?:rue|avenue|boulevard|place|impasse|allée|square|passage|chemin|route|cours|quai)\s+[^,\n.]{5,}(?:\s+\d{5}\s+[A-ZÀÁÂÄÇÉÈÊËÏÎÔÖÙÚÛÜÑ][a-zàáâäçéèêëïîôöùúûüñ-\s]+)?',
+                r'\d+(?:\s+(?:bis|ter|quater))?\s+(?:rue|avenue|boulevard|place|impasse|allée|square|passage|chemin|route|cours|quai)\s+[^,\n.]{5,}(?:\s+\d{5}\s+[A-ZÀÁÂÄÇÉÈÊËÏÎÔÖÙÚÛÜÑ][a-zàáâäçéèêëïîôöùúûüñ\s-]+)?',
                 # Code postal + ville (format français)
                 r'\b\d{5}\s+[A-ZÀÁÂÄÇÉÈÊËÏÎÔÖÙÚÛÜÑ][A-ZÀÁÂÄÇÉÈÊËÏÎÔÖÙÚÛÜÑ\s-]{2,}\b',
                 # Format avec virgules (adresse sur plusieurs lignes)
-                r'\d+(?:\s+(?:bis|ter|quater))?\s+(?:rue|avenue|boulevard|place|impasse|allée|square|passage|chemin|route)\s+[^,\n]{5,},\s*\d{5}\s+[A-ZÀÁÂÄÇÉÈÊËÏÎÔÖÙÚÛÜÑ][a-zàáâäçéèêëïîôöùúûüñ-\s]+'
+                r'\d+(?:\s+(?:bis|ter|quater))?\s+(?:rue|avenue|boulevard|place|impasse|allée|square|passage|chemin|route)\s+[^,\n]{5,},\s*\d{5}\s+[A-ZÀÁÂÄÇÉÈÊËÏÎÔÖÙÚÛÜÑ][a-zàáâäçéèêëïîôöùúûüñ\s-]+'
             ],
             'REFERENCE_JURIDIQUE': [
                 # Références spécifiques au domaine juridique français

@@ -121,7 +121,7 @@ STRUCTURED_ENTITY_TYPES = {
         'patterns': [
             r'\b(?:SIRET\s*:?\s*)?(\d{3}[\s\.]?\d{3}[\s\.]?\d{3}[\s\.]?\d{5})\b',
             r'\b(?:SIREN\s*:?\s*)?(\d{3}[\s\.]?\d{3}[\s\.]?\d{3})\b',
-            r'RCS\s+[A-Z][a-zA-Z-\s]+\s+(\d{3}[\s\.]?\d{3}[\s\.]?\d{3}(?:[\s\.]?\d{5})?)',
+            r'RCS\s+[A-Z][a-zA-Z\s-]+\s+(\d{3}[\s\.]?\d{3}[\s\.]?\d{3}(?:[\s\.]?\d{5})?)',
             r'(?:n°\s*TVA\s*:?\s*|TVA\s+intra\w*\s*:?\s*)?FR\s*(\d{2}\s?\d{9})',
             r'(?:APE|NAF)\s*:?\s*(\d{4}[A-Z])'
         ],
@@ -139,7 +139,7 @@ STRUCTURED_ENTITY_TYPES = {
     },
     'ADRESSE': {
         'patterns': [
-            r'\d+(?:\s+(?:bis|ter|quater))?\s+(?:rue|avenue|boulevard|place|impasse|allée|square|passage|chemin|route|cours|quai)\s+[^,\n.]{5,}(?:\s+\d{5}\s+[A-ZÀÁÂÄÇÉÈÊËÏÎÔÖÙÚÛÜÑ][a-zàáâäçéèêëïîôöùúûüñ-\s]+)?',
+            r'\d+(?:\s+(?:bis|ter|quater))?\s+(?:rue|avenue|boulevard|place|impasse|allée|square|passage|chemin|route|cours|quai)\s+[^,\n.]{5,}(?:\s+\d{5}\s+[A-ZÀÁÂÄÇÉÈÊËÏÎÔÖÙÚÛÜÑ][a-zàáâäçéèêëïîôöùúûüñ\s-]+)?',
             r'\b\d{5}\s+[A-ZÀÁÂÄÇÉÈÊËÏÎÔÖÙÚÛÜÑ][A-ZÀÁÂÄÇÉÈÊËÏÎÔÖÙÚÛÜÑ\s-]{2,}\b'
         ],
         'default_replacement': 'ADRESSE_MASQUEE',
