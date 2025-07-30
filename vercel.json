@@ -54,15 +54,7 @@
       "PYTHON_VERSION": "3.9"
     }
   },
-  "outputDirectory": "dist",
-  "framework": "vite",
   "installCommand": "npm install && pip install -r api/requirements.txt",
   "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "crons": [
-    {
-      "path": "/api/cleanup",
-      "schedule":  "0 8 * * *"
-    }
-  ]
+  "devCommand": "npm run dev"
 }
