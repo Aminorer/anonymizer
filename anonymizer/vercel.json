@@ -1,0 +1,106 @@
+{
+  "version": 2,
+  "name": "anonymiseur-juridique-rgpd",
+  "builds": [
+    {
+      "src": "api/*.py", 
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb",
+        "runtime": "python3.9"
+      }
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)", 
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/$1"
+    }
+  ],
+  "functions": {
+    "api/*.py": {
+      "maxDuration": 30,
+      "memory": 512,
+      "runtime": "python3.9"
+    }
+  },
+  "env": {
+    "PYTHONPATH": "/var/task/api",
+    "TRANSFORMERS_CACHE": "/tmp/transformers",
+    "HF_HOME": "/tmp/huggingface",
+    "TOKENIZERS_PARALLELISM": "false"
+  },
+  "build": {
+    "env": {
+      "PYTHON_VERSION": "3.9"
+    }
+  },
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "installCommand": "npm install && pip install -r api/requirements.txt",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "rewrites": [
+    {
+      "source": "/api/(.*)", 
+      "destination": "/api/main.py"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "X-RGPD-Compliant",
+          "value": "true"
+        },
+        {
+          "key": "X-Processing-Location", 
+          "value": "vercel_serverless"
+        },
+        {
+          "key": "X-Data-Retention",
+          "value": "0_minutes"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options", 
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cleanup",
+      "schedule": "0 */15 * * * *"
+    }
+  ]
+}
