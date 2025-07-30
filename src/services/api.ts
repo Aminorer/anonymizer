@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AnalyzeResponse, CustomEntity, Entity } from '../types/entities';
+import { AnalyzeResponse, Entity } from '../types/entities';
 
 const API_BASE_URL = '/api';
 
