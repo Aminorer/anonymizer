@@ -85,8 +85,7 @@ const AddEntityModal: React.FC<AddEntityModalProps> = ({ isOpen, onClose }) => {
   const previewText = React.useMemo(() => {
     if (!textPreview || !entityText.trim() || !replacement.trim()) return null;
     
-    const regex = new RegExp(entityText.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\  const [replacement, setReplacement] = useState('');
-  const ['), 'gi');
+    const regex = new RegExp(entityText.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
     return textPreview.replace(regex, `[${replacement.trim()}]`).substring(0, 500);
   }, [textPreview, entityText, replacement]);
 

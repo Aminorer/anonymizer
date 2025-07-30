@@ -390,6 +390,22 @@ const EntityControlPage: React.FC = () => {
 
                           {/* Informations de l'entité */}
                           <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className={`px-3 py-1 rounded-full text-sm font-medium border ${ENTITY_TYPE_COLORS[entity.type]}`}>
+                                {ENTITY_TYPE_ICONS[entity.type]} {entity.type}
+                              </div>
+                              
+                              <div className="font-mono text-lg font-medium text-gray-800">
+                                "{entity.text}"
+                              </div>
+                              
+                              {entity.groupId && (
+                                <div className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">
+                                  Groupé
+                                </div>
+                              )}
+                            </div>
+                            
                             <div className="flex items-center gap-4 text-sm text-gray-600">
                               <span className="flex items-center gap-1">
                                 <div className={`w-2 h-2 rounded-full ${
@@ -494,27 +510,27 @@ const EntityControlPage: React.FC = () => {
                     <div className="bg-red-100 border border-red-200 rounded-lg p-3">
                       <div className="font-semibold text-red-800 mb-1">❌ Problème résolu :</div>
                       <div className="text-red-700">
-                        Avec "Saïd OULHADJ" et "OULHADJ" dans le même groupe :<br/>
-                        • Ancien algorithme : "OULHADJ" → "X" puis "Saïd OULHADJ" → "Saïd X" ❌<br/>
-                        • Résultat incorrect : remplacement partiel au lieu de complet
+                        Avec "Saïd OULHADJ" et "OULHADJ" dans le même groupe :
+                        <br/>• Ancien algorithme : "OULHADJ" → "X" puis "Saïd OULHADJ" → "Saïd X" ❌
+                        <br/>• Résultat incorrect : remplacement partiel au lieu de complet
                       </div>
                     </div>
                     
                     <div className="bg-green-100 border border-green-200 rounded-lg p-3">
                       <div className="font-semibold text-green-800 mb-1">✅ Solution implémentée :</div>
                       <div className="text-green-700">
-                        • Tri par longueur décroissante avant remplacement<br/>
-                        • "Saïd OULHADJ" traité EN PREMIER → "X" directement ✅<br/>
-                        • "OULHADJ" ignoré car déjà remplacé dans le texte plus long
+                        • Tri par longueur décroissante avant remplacement
+                        <br/>• "Saïd OULHADJ" traité EN PREMIER → "X" directement ✅
+                        <br/>• "OULHADJ" ignoré car déjà remplacé dans le texte plus long
                       </div>
                     </div>
                     
                     <div className="bg-blue-100 border border-blue-200 rounded-lg p-3">
                       <div className="font-semibold text-blue-800 mb-1">🧠 Algorithme utilisé :</div>
                       <div className="text-blue-700 font-mono text-xs">
-                        const sortedReplacements = Object.entries(replacements)<br/>
-                        &nbsp;&nbsp;.sort(([a], [b]) => b.length - a.length);<br/>
-                        // Plus long en premier = remplacement correct
+                        const sortedReplacements = Object.entries(replacements)
+                        <br/>&nbsp;&nbsp;.sort(([a], [b]) =&gt; b.length - a.length);
+                        <br/>// Plus long en premier = remplacement correct
                       </div>
                     </div>
                   </div>
@@ -544,20 +560,4 @@ const EntityControlPage: React.FC = () => {
   );
 };
 
-export default EntityControlPage; gap-3 mb-2">
-                              <div className={`px-3 py-1 rounded-full text-sm font-medium border ${ENTITY_TYPE_COLORS[entity.type]}`}>
-                                {ENTITY_TYPE_ICONS[entity.type]} {entity.type}
-                              </div>
-                              
-                              <div className="font-mono text-lg font-medium text-gray-800">
-                                "{entity.text}"
-                              </div>
-                              
-                              {entity.groupId && (
-                                <div className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">
-                                  Groupé
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex items-center
+export default EntityControlPage;
