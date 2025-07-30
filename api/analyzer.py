@@ -12,14 +12,14 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Entity:
     id: str
-    text: str  
+    text: str
     type: str
     start: int
     end: int
     confidence: float
     replacement: str
-    selected: bool = True
     source: str  # 'regex' ou 'ner'
+    selected: bool = True
     occurrences: int = 1
 
 class HybridAnalyzer:
@@ -452,7 +452,7 @@ class HybridAnalyzer:
                 return False
             
             # Vérifier que ça ressemble à un nom (lettres + espaces/tirets seulement)
-            if not re.match(r'^[A-Za-zÀ-ÿ\s\'-]+, text_clean):
+            if not re.match(r"^[A-Za-zÀ-ÿ\s'\-]+$", text_clean):
                 return False
             
             return True

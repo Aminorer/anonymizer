@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Entity, EntityStats, CustomEntity } from '../types/entities';
+import { Entity, EntityStats } from '../types/entities';
 
 interface AnonymizerState {
   sessionId: string | null;
