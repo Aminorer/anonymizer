@@ -9,8 +9,8 @@ interface AddEntityModalProps {
 }
 
 const AddEntityModal: React.FC<AddEntityModalProps> = ({ isOpen, onClose }) => {
-  const { 
-    textPreview, 
+  const {
+    textPreview,
     addCustomEntity,
     entities
   } = useAnonymizerStore();
@@ -20,6 +20,8 @@ const AddEntityModal: React.FC<AddEntityModalProps> = ({ isOpen, onClose }) => {
   const [replacement, setReplacement] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -73,13 +75,19 @@ const AddEntityModal: React.FC<AddEntityModalProps> = ({ isOpen, onClose }) => {
   const handleSubmit = () => {
     if (!validateForm()) return;
     
+    setSubmitError('');
+    setIsSubmitting(true);
     addCustomEntity(
       entityText.trim(),
       entityType,
       replacement.trim()
-    );
-    
-    onClose();
+    ).then(() => {
+      onClose();
+    }).catch((e: any) => {
+      setSubmitError(e.message);
+    }).finally(() => {
+      setIsSubmitting(false);
+    });
   };
 
   const previewText = React.useMemo(() => {
@@ -311,12 +319,24 @@ const AddEntityModal: React.FC<AddEntityModalProps> = ({ isOpen, onClose }) => {
             >
               Annuler
             </button>
+            {submitError && (
+              <div className="text-red-600 text-sm flex items-center gap-1 mr-auto">
+                <AlertCircle size={14} /> {submitError}
+              </div>
+            )}
             <button
               onClick={handleSubmit}
-              disabled={!entityText.trim() || !replacement.trim()}
+              disabled={isSubmitting || !entityText.trim() || !replacement.trim()}
               className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
-              <Plus size={16} />
+              {isSubmitting ? (
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"></path>
+                </svg>
+              ) : (
+                <Plus size={16} />
+              )}
               Ajouter l'entité
             </button>
           </div>

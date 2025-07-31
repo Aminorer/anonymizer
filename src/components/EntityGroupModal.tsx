@@ -9,8 +9,8 @@ interface EntityGroupModalProps {
 }
 
 const EntityGroupModal: React.FC<EntityGroupModalProps> = ({ isOpen, onClose }) => {
-  const { 
-    entities, 
+  const {
+    entities,
     selectedEntitiesForGrouping,
     toggleEntityForGrouping,
     createEntityGroup,
@@ -21,6 +21,17 @@ const EntityGroupModal: React.FC<EntityGroupModalProps> = ({ isOpen, onClose }) 
   const [groupName, setGroupName] = useState('');
   const [groupReplacement, setGroupReplacement] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setGroupName('');
+      setGroupReplacement('');
+      setShowPreview(false);
+      setSubmitError('');
+    }
+  }, [isOpen]);
 
   // Entités sélectionnées pour le groupement
   const selectedEntities = useMemo(() => {
@@ -64,15 +75,20 @@ const EntityGroupModal: React.FC<EntityGroupModalProps> = ({ isOpen, onClose }) 
 
   if (!isOpen) return null;
 
-  const handleCreateGroup = () => {
+  const handleCreateGroup = async () => {
     if (!groupName.trim() || !groupReplacement.trim() || selectedEntities.length === 0) {
       return;
     }
-    
-    createEntityGroup(groupName.trim(), groupReplacement.trim());
-    setGroupName('');
-    setGroupReplacement('');
-    onClose();
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      await createEntityGroup(groupName.trim(), groupReplacement.trim());
+      onClose();
+    } catch (e: any) {
+      setSubmitError(e.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const previewText = useMemo(() => {
@@ -302,12 +318,24 @@ const EntityGroupModal: React.FC<EntityGroupModalProps> = ({ isOpen, onClose }) 
             >
               Annuler
             </button>
+            {submitError && (
+              <div className="text-red-600 text-sm flex items-center gap-1 mr-auto">
+                <AlertTriangle size={14} /> {submitError}
+              </div>
+            )}
             <button
               onClick={handleCreateGroup}
-              disabled={!groupName.trim() || !groupReplacement.trim() || selectedEntities.length === 0}
+              disabled={isSubmitting || !groupName.trim() || !groupReplacement.trim() || selectedEntities.length === 0}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
-              <Users size={16} />
+              {isSubmitting ? (
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"></path>
+                </svg>
+              ) : (
+                <Users size={16} />
+              )}
               Créer le groupe ({selectedEntities.length} entités)
             </button>
           </div>

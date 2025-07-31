@@ -6,7 +6,7 @@ import {
   Search, X
 } from 'lucide-react';
 import { useAnonymizerStore } from '../stores/anonymizerStore';
-import { generateAnonymizedDocument } from '../services/api';
+import { generateAnonymizedDocument, syncSession } from '../services/api';
 import { Entity, ENTITY_TYPE_COLORS, ENTITY_TYPE_ICONS } from '../types/entities';
 
 // Import des nouveaux composants
@@ -86,24 +86,24 @@ const EntityControlPage: React.FC = () => {
       setError(null);
       
       const selectedEntities = getSelectedEntities();
-      
+
       if (selectedEntities.length === 0) {
         setError('Aucune entité sélectionnée pour l\'anonymisation');
         return;
       }
 
-      // 🧠 APPLIQUER L'ALGORITHME DE GROUPEMENT INTELLIGENT
+      await syncSession(sessionId, entities, entityGroups);
+
       const replacements: Record<string, string> = {};
       selectedEntities.forEach(entity => {
         replacements[entity.text] = entity.replacement;
       });
 
-      // Démonstration de l'algorithme corrigé
       console.log('🔄 Application de l\'algorithme de groupement intelligent...');
       const testText = selectedEntities.slice(0, 3).map(e => e.text).join(' et ');
       console.log('Texte test:', testText);
       console.log('Résultat avec tri par longueur:', applyGroupReplacements(testText, replacements));
-      
+
       const blob = await generateAnonymizedDocument(sessionId, selectedEntities);
       
       const url = window.URL.createObjectURL(blob);

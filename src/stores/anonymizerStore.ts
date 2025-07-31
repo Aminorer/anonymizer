@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { addCustomEntity as addCustomEntityApi, createEntityGroup as createEntityGroupApi, modifyEntity as modifyEntityApi, removeEntityGroup as removeEntityGroupApi } from '../services/api';
 import { Entity, EntityStats, EntityGroup } from '../types/entities';
 
 interface AnonymizerState {
@@ -10,6 +12,7 @@ interface AnonymizerState {
   stats: EntityStats | null;
   isAnalyzing: boolean;
   isGenerating: boolean;
+  isLoading: boolean;
   error: string | null;
   
   // 🆕 NOUVEAUX ÉTATS POUR FONCTIONNALITÉS AVANCÉES
@@ -28,16 +31,17 @@ interface AnonymizerState {
   updateReplacement: (entityId: string, replacement: string) => void;
   setAnalyzing: (analyzing: boolean) => void;
   setGenerating: (generating: boolean) => void;
+  setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   getSelectedEntities: () => Entity[];
   
   // 🆕 NOUVELLES ACTIONS POUR FONCTIONNALITÉS AVANCÉES
   setEditingEntity: (entity: Entity | null) => void;
   toggleEntityForGrouping: (entityId: string) => void;
-  createEntityGroup: (name: string, replacement: string) => void;
-  removeEntityGroup: (groupId: string) => void;
-  modifyEntity: (entityId: string, newText: string, newReplacement?: string) => void;
-  addCustomEntity: (text: string, type: string, replacement: string) => void;
+  createEntityGroup: (name: string, replacement: string) => Promise<void>;
+  removeEntityGroup: (groupId: string) => Promise<void>;
+  modifyEntity: (entityId: string, newText: string, newReplacement?: string) => Promise<void>;
+  addCustomEntity: (text: string, type: string, replacement: string) => Promise<void>;
   setSourceFilter: (source: string, enabled: boolean) => void;
   setShowGroupModal: (show: boolean) => void;
   setShowEditModal: (show: boolean) => void;
@@ -48,7 +52,7 @@ interface AnonymizerState {
   applyGroupReplacements: (text: string, replacements: Record<string, string>) => string;
 }
 
-export const useAnonymizerStore = create<AnonymizerState>((set, get) => ({
+export const useAnonymizerStore = create<AnonymizerState>()(persist((set, get) => ({
   // États existants
   sessionId: null,
   filename: null,
@@ -57,6 +61,7 @@ export const useAnonymizerStore = create<AnonymizerState>((set, get) => ({
   stats: null,
   isAnalyzing: false,
   isGenerating: false,
+  isLoading: false,
   error: null,
   
   // 🆕 Nouveaux états initialisés
@@ -103,6 +108,7 @@ export const useAnonymizerStore = create<AnonymizerState>((set, get) => ({
   
   setAnalyzing: (isAnalyzing) => set({ isAnalyzing }),
   setGenerating: (isGenerating) => set({ isGenerating }),
+  setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
   
   getSelectedEntities: () => {
@@ -128,41 +134,42 @@ export const useAnonymizerStore = create<AnonymizerState>((set, get) => ({
     });
   },
   
-  createEntityGroup: (name, replacement) => {
+  createEntityGroup: async (name, replacement) => {
     const state = get();
-    const selectedEntities = state.entities.filter(e => 
-      state.selectedEntitiesForGrouping.includes(e.id)
-    );
-    
-    if (selectedEntities.length === 0) return;
-    
-    const newGroup: EntityGroup = {
-      id: `group_${Date.now()}`,
-      name,
-      replacement,
-      entities: selectedEntities.map(e => e.id),
-      createdAt: new Date().toISOString()
-    };
-    
-    // Mettre à jour les entités pour utiliser le remplacement du groupe
-    const updatedEntities = state.entities.map(entity => {
-      if (state.selectedEntitiesForGrouping.includes(entity.id)) {
-        return { ...entity, replacement, groupId: newGroup.id };
-      }
-      return entity;
-    });
-    
-    set({
-      entityGroups: [...state.entityGroups, newGroup],
-      entities: updatedEntities,
-      selectedEntitiesForGrouping: [],
-      showGroupModal: false
-    });
+    const entityIds = state.selectedEntitiesForGrouping;
+    if (entityIds.length === 0 || !state.sessionId) return;
+    try {
+      set({ isLoading: true, error: null });
+      const res = await createEntityGroupApi(state.sessionId, name, replacement, entityIds);
+      const newGroup: EntityGroup = {
+        id: res.group_id,
+        name,
+        replacement,
+        entities: entityIds,
+        createdAt: new Date().toISOString()
+      };
+      const updatedEntities = state.entities.map(e =>
+        entityIds.includes(e.id) ? { ...e, replacement, groupId: res.group_id } : e
+      );
+      set({
+        entityGroups: [...state.entityGroups, newGroup],
+        entities: updatedEntities,
+        selectedEntitiesForGrouping: [],
+        showGroupModal: false,
+        isLoading: false
+      });
+    } catch (e: any) {
+      set({ error: e.message, isLoading: false });
+      throw e;
+    }
   },
-  
-  removeEntityGroup: (groupId) => {
-    set((state) => {
-      // Restaurer les remplacements individuels
+
+  removeEntityGroup: async (groupId) => {
+    const state = get();
+    if (!state.sessionId) return;
+    try {
+      set({ isLoading: true, error: null });
+      await removeEntityGroupApi(state.sessionId, groupId);
       const updatedEntities = state.entities.map(entity => {
         if (entity.groupId === groupId) {
           const { groupId: _, ...entityWithoutGroup } = entity as any;
@@ -173,49 +180,54 @@ export const useAnonymizerStore = create<AnonymizerState>((set, get) => ({
         }
         return entity;
       });
-      
-      return {
-        entityGroups: state.entityGroups.filter(group => group.id !== groupId),
-        entities: updatedEntities
-      };
-    });
+      set({
+        entityGroups: state.entityGroups.filter(g => g.id !== groupId),
+        entities: updatedEntities,
+        isLoading: false
+      });
+    } catch (e: any) {
+      set({ error: e.message, isLoading: false });
+      throw e;
+    }
   },
-  
-  modifyEntity: (entityId, newText, newReplacement) => {
-    set((state) => ({
-      entities: state.entities.map(entity =>
-        entity.id === entityId
-          ? {
-              ...entity,
-              text: newText,
-              replacement: newReplacement || entity.replacement
-            }
-          : entity
-      )
-    }));
-  },
-  
-  addCustomEntity: (text, type, replacement) => {
+
+  modifyEntity: async (entityId, newText, newReplacement) => {
     const state = get();
-    const newEntity: Entity = {
-      id: `custom_${Date.now()}`,
-      text,
-      type,
-      start: 0,
-      end: text.length,
-      occurrences: state.textPreview
-        ? state.textPreview.toLowerCase().split(text.toLowerCase()).length - 1
-        : 1,
-      confidence: 1.0,
-      selected: true,
-      replacement,
-      source: 'manual'
-    };
-    
-    set({
-      entities: [...state.entities, newEntity],
-      showAddEntityModal: false
-    });
+    if (!state.sessionId) return;
+    try {
+      set({ isLoading: true, error: null });
+      const res = await modifyEntityApi(state.sessionId, entityId, newText, newReplacement);
+      const updated = res.entity;
+      set({
+        entities: state.entities.map(e => (e.id === entityId ? updated : e)),
+        isLoading: false,
+        showEditModal: false
+      });
+    } catch (e: any) {
+      set({ error: e.message, isLoading: false });
+      throw e;
+    }
+  },
+
+  addCustomEntity: async (text, type, replacement) => {
+    const state = get();
+    if (!state.sessionId) return;
+    try {
+      set({ isLoading: true, error: null });
+      const res = await addCustomEntityApi(state.sessionId, {
+        text,
+        entity_type: type as any,
+        replacement
+      });
+      set({
+        entities: [...state.entities, res.entity],
+        showAddEntityModal: false,
+        isLoading: false
+      });
+    } catch (e: any) {
+      set({ error: e.message, isLoading: false });
+      throw e;
+    }
   },
   
   setSourceFilter: (source, enabled) => {
@@ -254,6 +266,16 @@ export const useAnonymizerStore = create<AnonymizerState>((set, get) => ({
     
     return result;
   }
+}), {
+  name: 'anonymizer-store',
+  partialize: (state) => ({
+    sessionId: state.sessionId,
+    filename: state.filename,
+    textPreview: state.textPreview,
+    entities: state.entities,
+    stats: state.stats,
+    entityGroups: state.entityGroups
+  })
 }));
 
 // Fonction utilitaire pour générer des remplacements par défaut

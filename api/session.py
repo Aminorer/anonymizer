@@ -63,6 +63,7 @@ class SessionManager:
             'filename': filename,
             'original_text': original_text,
             'entities': [entity.__dict__ if hasattr(entity, '__dict__') else entity for entity in entities],
+            'entity_groups': [],
             'document_bytes': doc_bytes,
             'created_at': now.isoformat(),
             'expires_at': expires_at.isoformat(),
@@ -126,6 +127,25 @@ class SessionManager:
             session_data['accessed_at'] = datetime.now().isoformat()
             
             logger.info(f"✅ Entités mises à jour: {session_id} ({len(entities)} entités)")
+            return True
+
+    def update_entity_groups(self, session_id: str, groups: List[Dict[str, Any]]) -> bool:
+        with self._lock:
+            session_data = self._sessions.get(session_id)
+            if not session_data:
+                logger.warning(f"❌ Session introuvable pour mise à jour de groupes: {session_id}")
+                return False
+
+            expires_at = datetime.fromisoformat(session_data['expires_at'])
+            if datetime.now() > expires_at:
+                logger.info(f"⏰ Session expirée lors de la mise à jour de groupes: {session_id}")
+                del self._sessions[session_id]
+                return False
+
+            session_data['entity_groups'] = groups
+            session_data['updated_at'] = datetime.now().isoformat()
+            session_data['accessed_at'] = datetime.now().isoformat()
+            logger.info(f"✅ Groupes mis à jour: {session_id} ({len(groups)} groupes)")
             return True
     
     def get_document_from_session(self, session_id: str) -> Optional[Document]:

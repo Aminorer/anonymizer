@@ -37,6 +37,7 @@ class Entity(BaseModel):
     selected: bool = True
     replacement: str = ""
     occurrences: int = 1
+    groupId: Optional[str] = None
     
     def __init__(self, **data):
         if 'id' not in data or not data['id']:
@@ -50,6 +51,13 @@ class CustomEntity(BaseModel):
     text: str
     entity_type: EntityTypeEnum
     replacement: str
+
+class EntityGroup(BaseModel):
+    id: str
+    name: str
+    replacement: str
+    entities: List[str]
+    createdAt: str
 
 class EntityStats(BaseModel):
     """
@@ -82,6 +90,11 @@ class AuditLog(BaseModel):
     entities_anonymized: int
     replacement_summary: List[Dict[str, Any]]
     architecture: str = "REGEX_structured + NER_complex"
+
+class SyncSessionPayload(BaseModel):
+    session_id: str
+    entities: List[Entity]
+    groups: List[EntityGroup] = []
 
 # Configuration des types d'entités avec séparation REGEX/NER
 STRUCTURED_ENTITY_TYPES = {
