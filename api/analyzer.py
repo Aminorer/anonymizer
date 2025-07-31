@@ -1,11 +1,28 @@
+"""Core anonymization logic leveraging HuggingFace transformers.
+
+This module is configured to run in a PyTorch-only environment. TensorFlow is
+explicitly disabled to avoid import errors caused by optional TensorFlow
+dependencies inside ``transformers``.  The environment variables are set before
+importing ``transformers`` so that the library never attempts to load
+TensorFlow.
+"""
+
+import os
+import warnings
 import re
-from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from functools import lru_cache
 import time
 import hashlib
 import logging
+
+# Disable TensorFlow integration in transformers and silence TF warnings
+os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
+
+from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
 
 logger = logging.getLogger(__name__)
 
