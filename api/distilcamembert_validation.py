@@ -8,20 +8,23 @@ def test_distilcamembert():
     os.environ["USE_TORCH"] = "1"
 
     try:
-        from transformers import pipeline
+        from transformers import AutoTokenizer, pipeline
     except ImportError as e:
         if "tensorflow" in str(e).lower():
             import transformers
 
             transformers.utils.import_utils.is_tf_available = lambda: False
-            from transformers import pipeline
+            from transformers import AutoTokenizer, pipeline
         else:
             raise
 
+    tokenizer = AutoTokenizer.from_pretrained(
+        "cmarkea/distilcamembert-base-ner", use_fast=False
+    )
     ner = pipeline(
         "ner",
         model="cmarkea/distilcamembert-base-ner",
-        tokenizer="cmarkea/distilcamembert-base-ner",
+        tokenizer=tokenizer,
         device=-1,
     )
     result = ner("Jean Dupont travaille chez OpenAI.")

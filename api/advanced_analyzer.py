@@ -12,13 +12,13 @@ warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
 # Use the same defensive import strategy as in ``analyzer`` to guarantee that
 # TensorFlow is never loaded even if it is present in the environment.
 try:
-    from transformers import pipeline
+    from transformers import AutoTokenizer, pipeline
 except ImportError as e:  # pragma: no cover - defensive fallback
     if "tensorflow" in str(e).lower():
         import transformers
 
         transformers.utils.import_utils.is_tf_available = lambda: False
-        from transformers import pipeline
+        from transformers import AutoTokenizer, pipeline
     else:  # pragma: no cover
         raise
 from .analyzer import hybrid_analyzer
@@ -31,10 +31,13 @@ def analyze_advanced(text: str) -> Dict:
         entities.append({"text": e.text, "label": e.type, "start": e.start, "end": e.end, "source": "REGEX"})
     global _NER_PIPELINE
     if _NER_PIPELINE is None:
+        tokenizer = AutoTokenizer.from_pretrained(
+            "cmarkea/distilcamembert-base-ner", use_fast=False
+        )
         _NER_PIPELINE = pipeline(
             "ner",
             model="cmarkea/distilcamembert-base-ner",
-            tokenizer="cmarkea/distilcamembert-base-ner",
+            tokenizer=tokenizer,
             aggregation_strategy="simple",
         )
     ner_results = _NER_PIPELINE(text)

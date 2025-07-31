@@ -34,7 +34,6 @@ def main() -> None:
             "install",
             "transformers==4.35.0",
             "torch==2.2.0",
-            "tokenizers==0.14.1",
         ]
     )
 

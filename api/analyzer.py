@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
 # completely safe we patch ``is_tf_available`` to always return ``False`` if an
 # ImportError mentioning TensorFlow is raised.
 try:
-    from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
+    from transformers import AutoTokenizer, pipeline
 except ImportError as e:  # pragma: no cover - defensive fallback
     if "tensorflow" in str(e).lower():
         import transformers
@@ -36,7 +36,6 @@ except ImportError as e:  # pragma: no cover - defensive fallback
         transformers.utils.import_utils.is_tf_available = lambda: False
         from transformers import (
             AutoTokenizer,
-            AutoModelForTokenClassification,
             pipeline,
         )
     else:  # pragma: no cover - bubble up unexpected import errors
@@ -177,13 +176,16 @@ class HybridAnalyzer:
         if self._ner_pipeline is None:
             logger.info("🔄 Chargement du modèle DistilCamemBERT...")
             try:
+                tokenizer = AutoTokenizer.from_pretrained(
+                    self.ner_model_name, use_fast=False
+                )
                 self._ner_pipeline = pipeline(
                     "ner",
                     model=self.ner_model_name,
-                    tokenizer=self.ner_model_name,
+                    tokenizer=tokenizer,
                     aggregation_strategy="simple",
                     device=-1,  # CPU pour compatibilité Vercel
-                    return_all_scores=False  # Économie mémoire
+                    return_all_scores=False,  # Économie mémoire
                 )
                 logger.info("✅ Modèle DistilCamemBERT chargé avec succès")
             except Exception as e:
