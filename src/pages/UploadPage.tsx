@@ -2,7 +2,7 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
-import { Shield, Upload, AlertCircle, CheckCircle, Wifi, WifiOff } from 'lucide-react';
+import { Shield, Upload, AlertCircle, CheckCircle, WifiOff } from 'lucide-react';
 import { analyzeDocument, testConnection } from '../services/api';
 import { useAnonymizerStore } from '../stores/anonymizerStore';
 
