@@ -365,43 +365,29 @@ class HybridAnalyzer:
         # Par défaut : validation basique
         return len(text.strip()) >= 3, 0.80
     
-    def _validate_siret_checksum(self, siret: str) -> bool:
-        """Validation checksum SIRET avec algorithme de Luhn"""
+    def _luhn_checksum(self, number: str) -> bool:
+        """Algorithme de Luhn générique utilisé pour SIRET/SIREN"""
         try:
-            if len(siret) != 14:
-                return False
-            
-            # Algorithme de Luhn modifié pour SIRET
             total = 0
-            for i, digit in enumerate(siret):
-                weight = 2 if i % 2 == 1 else 1
-                product = int(digit) * weight
-                if product > 9:
-                    product = (product // 10) + (product % 10)
-                total += product
-            
+            reverse_digits = number[::-1]
+            for i, digit in enumerate(reverse_digits):
+                n = int(digit)
+                if i % 2 == 1:
+                    n *= 2
+                    if n > 9:
+                        n -= 9
+                total += n
             return total % 10 == 0
-        except:
+        except Exception:
             return False
-    
+
+    def _validate_siret_checksum(self, siret: str) -> bool:
+        """Validation checksum SIRET"""
+        return len(siret) == 14 and self._luhn_checksum(siret)
+
     def _validate_siren_checksum(self, siren: str) -> bool:
         """Validation checksum SIREN"""
-        try:
-            if len(siren) != 9:
-                return False
-            
-            # Algorithme de validation SIREN
-            total = 0
-            for i, digit in enumerate(siren):
-                weight = 2 if i % 2 == 1 else 1
-                product = int(digit) * weight
-                if product > 9:
-                    product = (product // 10) + (product % 10)
-                total += product
-            
-            return total % 10 == 0
-        except:
-            return False
+        return len(siren) == 9 and self._luhn_checksum(siren)
     
     def _map_ner_label(self, label: str) -> Optional[str]:
         """
