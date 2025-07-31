@@ -10,10 +10,9 @@ interface EntityEditModalProps {
 
 const EntityEditModal: React.FC<EntityEditModalProps> = ({ isOpen, onClose }) => {
   const { 
-    editingEntity, 
-    textPreview, 
-    modifyEntity, 
-    setEditingEntity 
+    editingEntity,
+    textPreview,
+    modifyEntity
   } = useAnonymizerStore();
   
   const [newText, setNewText] = useState('');

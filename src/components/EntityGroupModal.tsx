@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Users, AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react';
 import { useAnonymizerStore } from '../stores/anonymizerStore';
-import { Entity, ENTITY_TYPE_COLORS, ENTITY_TYPE_ICONS } from '../types/entities';
+import { ENTITY_TYPE_COLORS, ENTITY_TYPE_ICONS } from '../types/entities';
 
 interface EntityGroupModalProps {
   isOpen: boolean;
@@ -147,8 +147,8 @@ const EntityGroupModal: React.FC<EntityGroupModalProps> = ({ isOpen, onClose }) 
                       <input
                         type="checkbox"
                         checked={selectedEntitiesForGrouping.includes(entity.id)}
-                        onChange={() => {}}
-                        className="w-4 h-4 text-blue-600 rounded"
+                        disabled
+                        className="w-4 h-4 text-blue-600 rounded cursor-not-allowed opacity-60"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="font-mono text-sm truncate">

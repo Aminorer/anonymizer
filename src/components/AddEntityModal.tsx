@@ -268,7 +268,9 @@ const AddEntityModal: React.FC<AddEntityModalProps> = ({ isOpen, onClose }) => {
                 <div className="flex items-center gap-2">
                   <span className="text-green-700">📊 Occurrences:</span>
                   <span className="text-green-800">
-                    ~{textPreview?.toLowerCase().split(entityText.toLowerCase()).length - 1 || 0} dans le document
+                    ~{textPreview
+                      ? textPreview.toLowerCase().split(entityText.toLowerCase()).length - 1
+                      : 0} dans le document
                   </span>
                 </div>
               </div>

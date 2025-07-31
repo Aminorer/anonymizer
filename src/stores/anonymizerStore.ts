@@ -168,7 +168,7 @@ export const useAnonymizerStore = create<AnonymizerState>((set, get) => ({
           const { groupId: _, ...entityWithoutGroup } = entity as any;
           return {
             ...entityWithoutGroup,
-            replacement: state.generateDefaultReplacement(entity.type, entity.text)
+            replacement: generateDefaultReplacement(entity.type, entity.text)
           };
         }
         return entity;
@@ -203,7 +203,9 @@ export const useAnonymizerStore = create<AnonymizerState>((set, get) => ({
       type,
       start: 0,
       end: text.length,
-      occurrences: state.textPreview?.toLowerCase().split(text.toLowerCase()).length - 1 || 1,
+      occurrences: state.textPreview
+        ? state.textPreview.toLowerCase().split(text.toLowerCase()).length - 1
+        : 1,
       confidence: 1.0,
       selected: true,
       replacement,
