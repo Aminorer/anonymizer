@@ -22,7 +22,23 @@ os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
 
-from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
+# Import transformers while explicitly disabling any TensorFlow backend.  Some
+# versions of ``transformers`` will still try to import ``tensorflow`` if it is
+# present in the environment, even when ``TRANSFORMERS_NO_TF`` is set.  To be
+# completely safe we patch ``is_tf_available`` to always return ``False`` if an
+# ImportError mentioning TensorFlow is raised.
+try:
+    from transformers import pipeline
+except ImportError as e:  # pragma: no cover - defensive fallback
+    if "tensorflow" in str(e).lower():
+        import transformers
+
+        transformers.utils.import_utils.is_tf_available = lambda: False
+        from transformers import (
+            pipeline,
+        )
+    else:  # pragma: no cover - bubble up unexpected import errors
+        raise
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +181,8 @@ class HybridAnalyzer:
                     tokenizer=self.ner_model_name,
                     aggregation_strategy="simple",
                     device=-1,  # CPU pour compatibilité Vercel
-                    return_all_scores=False  # Économie mémoire
+                    return_all_scores=False,  # Économie mémoire
+                    use_fast=False,
                 )
                 logger.info("✅ Modèle DistilCamemBERT chargé avec succès")
             except Exception as e:

@@ -32,9 +32,8 @@ def main() -> None:
             "-m",
             "pip",
             "install",
-            "transformers==4.35.0",
+            "transformers==4.30.0",
             "torch==2.2.0",
-            "tokenizers==0.14.1",
         ]
     )
 

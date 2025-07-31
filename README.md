@@ -231,7 +231,7 @@ cd api
 pip install -r requirements.txt
 
 # Test du modèle DistilCamemBERT
-python -c "from transformers import pipeline; ner = pipeline('ner', model='cmarkea/distilcamembert-base-ner'); print('✅ Modèle DistilCamemBERT opérationnel')"
+python -c "from transformers import pipeline; ner = pipeline('ner', model='cmarkea/distilcamembert-base-ner', tokenizer='cmarkea/distilcamembert-base-ner', use_fast=False); print('✅ Modèle DistilCamemBERT opérationnel')"
 ```
 
 ### Tests de Performance
@@ -317,7 +317,7 @@ VITE_MAX_FILE_SIZE=52428800
 #### ❌ Erreur "Model not found"
 ```bash
 # Solution : Vérifier le cache DistilCamemBERT
-python -c "from transformers import pipeline; pipeline('ner', model='cmarkea/distilcamembert-base-ner')"
+python -c "from transformers import pipeline; pipeline('ner', model='cmarkea/distilcamembert-base-ner', tokenizer='cmarkea/distilcamembert-base-ner', use_fast=False)"
 ```
 
 #### ❌ Timeout Vercel (>30s)
