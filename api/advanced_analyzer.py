@@ -1,4 +1,14 @@
+"""Advanced analysis helpers that rely solely on the PyTorch backend."""
+
+import os
+import warnings
 from typing import Dict
+
+# Ensure transformers never attempts to load TensorFlow
+os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
+
 from transformers import pipeline
 from .analyzer import hybrid_analyzer
 
