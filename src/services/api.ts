@@ -1,11 +1,14 @@
+/// <reference types="vite/client" />
 import axios from 'axios';
-import { AnalyzeResponse, Entity, CustomEntity } from '../types/entities';
+import { AnalyzeResponse, Entity, CustomEntity, EntityGroup } from '../types/entities';
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.DEV
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:8000/api')
+  : '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 300000, // 5 minutes pour les gros fichiers
+  timeout: 30000,
 });
 
 api.interceptors.response.use(
@@ -114,6 +117,20 @@ export const removeEntityGroup = async (
   formData.append('group_id', groupId);
 
   const response = await api.delete('/remove-group', { data: formData });
+  return response.data;
+};
+
+export const syncSession = async (
+  sessionId: string,
+  entities: Entity[],
+  groups: EntityGroup[]
+): Promise<{ success: boolean }> => {
+  const payload = {
+    session_id: sessionId,
+    entities,
+    groups
+  };
+  const response = await api.post('/sync-session', payload);
   return response.data;
 };
 

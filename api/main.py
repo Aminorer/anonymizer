@@ -12,8 +12,8 @@ from analyzer import hybrid_analyzer, Entity
 from processor import DocumentProcessor
 from session import SessionManager
 from models import (
-    AnalyzeResponse, EntityStats, CustomEntity, 
-    ENTITY_TYPES, EntityTypeEnum
+    AnalyzeResponse, EntityStats, CustomEntity,
+    ENTITY_TYPES, EntityTypeEnum, Entity as EntityModel, EntityGroup, SyncSessionPayload
 )
 
 # Configuration logging
@@ -44,6 +44,9 @@ session_manager = SessionManager()
 # Configuration Vercel
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 SUPPORTED_FILE_TYPES = [".pdf", ".docx"]
+
+def _default_replacement(entity_type: str) -> str:
+    return ENTITY_TYPES.get(entity_type, {}).get('default_replacement', 'ANONYME')
 
 @app.get("/api/health")
 async def health_check():
@@ -345,6 +348,121 @@ async def generate_anonymized_document(
     except Exception as e:
         logger.error(f"🚨 ERREUR GÉNÉRATION: {e}")
         raise HTTPException(status_code=500, detail="Erreur lors de la génération du document")
+
+@app.post("/api/modify-entity")
+async def modify_entity(
+    session_id: str = Form(...),
+    entity_id: str = Form(...),
+    new_text: str = Form(...),
+    new_replacement: str = Form(None)
+):
+    try:
+        session_data = session_manager.get_session(session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session introuvable")
+
+        entities = [EntityModel(**e) if isinstance(e, dict) else EntityModel(**e.__dict__) for e in session_data.get('entities', [])]
+        target = next((e for e in entities if e.id == entity_id), None)
+        if not target:
+            raise HTTPException(status_code=404, detail="Entité introuvable")
+
+        target.text = new_text
+        if new_replacement:
+            target.replacement = new_replacement
+
+        session_manager.update_session_entities(session_id, entities)
+        return {"success": True, "entity": target.dict()}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"🚨 ERREUR MODIFICATION ENTITÉ: {e}")
+        raise HTTPException(status_code=500, detail="Erreur modification entité")
+
+@app.post("/api/group-entities")
+async def group_entities(
+    session_id: str = Form(...),
+    group_name: str = Form(...),
+    replacement: str = Form(...),
+    entity_ids: str = Form(...)
+):
+    try:
+        session_data = session_manager.get_session(session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session introuvable")
+
+        try:
+            ids = json.loads(entity_ids)
+        except Exception:
+            raise HTTPException(status_code=400, detail="entity_ids doit être un JSON valide")
+
+        entities = [EntityModel(**e) if isinstance(e, dict) else EntityModel(**e.__dict__) for e in session_data.get('entities', [])]
+        group_id = str(uuid.uuid4())
+
+        for ent in entities:
+            if ent.id in ids:
+                ent.replacement = replacement
+                ent.groupId = group_id  # type: ignore
+
+        groups = session_data.get('entity_groups', [])
+        groups.append({
+            'id': group_id,
+            'name': group_name,
+            'replacement': replacement,
+            'entities': ids,
+            'createdAt': datetime.now().isoformat()
+        })
+
+        session_manager.update_session_entities(session_id, entities)
+        session_manager.update_entity_groups(session_id, groups)
+        return {"success": True, "group_id": group_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"🚨 ERREUR GROUPEMENT ENTITÉS: {e}")
+        raise HTTPException(status_code=500, detail="Erreur groupement entités")
+
+@app.delete("/api/remove-group")
+async def remove_group(
+    session_id: str = Form(...),
+    group_id: str = Form(...)
+):
+    try:
+        session_data = session_manager.get_session(session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session introuvable")
+
+        entities = [EntityModel(**e) if isinstance(e, dict) else EntityModel(**e.__dict__) for e in session_data.get('entities', [])]
+        for ent in entities:
+            if getattr(ent, 'groupId', None) == group_id:
+                ent.groupId = None  # type: ignore
+                ent.replacement = _default_replacement(ent.type)
+
+        groups = [g for g in session_data.get('entity_groups', []) if g.get('id') != group_id]
+
+        session_manager.update_session_entities(session_id, entities)
+        session_manager.update_entity_groups(session_id, groups)
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"🚨 ERREUR SUPPRESSION GROUPE: {e}")
+        raise HTTPException(status_code=500, detail="Erreur suppression groupe")
+
+@app.post("/api/sync-session")
+async def sync_session(payload: SyncSessionPayload):
+    try:
+        session_data = session_manager.get_session(payload.session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session introuvable")
+
+        session_manager.update_session_entities(payload.session_id, payload.entities)
+        session_manager.update_entity_groups(payload.session_id, [g.dict() for g in payload.groups])
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"🚨 ERREUR SYNC SESSION: {e}")
+        raise HTTPException(status_code=500, detail="Erreur synchronisation session")
 
 @app.get("/api/session/{session_id}")
 async def get_session_info(session_id: str):
