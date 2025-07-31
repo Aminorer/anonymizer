@@ -1,3 +1,4 @@
+// vite.config.ts - Configuration proxy corrigée
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -8,8 +9,9 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true
+        target: 'http://localhost:8080',  // ← PORT 8080 pour FastAPI
+        changeOrigin: true,
+        rewrite: (path) => path
       }
     }
   },

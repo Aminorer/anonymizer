@@ -1,37 +1,57 @@
-import React, { useCallback, useState } from 'react';
+// src/pages/UploadPage.tsx - Avec test de connexion backend
+import React, { useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
-import { Shield, Upload, AlertCircle } from 'lucide-react';
-import { analyzeDocument } from '../services/api';
+import { Shield, Upload, AlertCircle, CheckCircle, Wifi, WifiOff } from 'lucide-react';
+import { analyzeDocument, testConnection } from '../services/api';
 import { useAnonymizerStore } from '../stores/anonymizerStore';
 
 const UploadPage: React.FC = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<'standard' | 'approfondi'>('standard');
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const { setSessionData, setEntities, setAnalyzing, setError, error, isAnalyzing } = useAnonymizerStore();
+
+  // Test de connexion au démarrage
+  useEffect(() => {
+    const checkBackend = async () => {
+      const isConnected = await testConnection();
+      setBackendStatus(isConnected ? 'connected' : 'disconnected');
+    };
+    checkBackend();
+  }, []);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
 
+    // Vérifier la connexion avant upload
+    if (backendStatus !== 'connected') {
+      setError('❌ Backend non connecté. Vérifiez que FastAPI fonctionne sur le port 8080.');
+      return;
+    }
+
     try {
       setError(null);
       setAnalyzing(true);
 
+      console.log('🚀 Upload du fichier:', file.name, 'Mode:', mode);
       const response = await analyzeDocument(file, mode);
       
+      console.log('✅ Réponse reçue:', response);
       setSessionData(response.session_id, response.filename, response.text_preview);
       setEntities(response.entities, response.stats);
       
       navigate('/control');
       
     } catch (err) {
+      console.error('❌ Erreur upload:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erreur lors de l\'analyse du document';
       setError(errorMessage);
     } finally {
       setAnalyzing(false);
     }
-  }, [mode, navigate, setSessionData, setEntities, setAnalyzing, setError]);
+  }, [mode, navigate, setSessionData, setEntities, setAnalyzing, setError, backendStatus]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -40,8 +60,14 @@ const UploadPage: React.FC = () => {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
     },
     maxFiles: 1,
-    disabled: isAnalyzing
+    disabled: isAnalyzing || backendStatus !== 'connected'
   });
+
+  const retryConnection = async () => {
+    setBackendStatus('checking');
+    const isConnected = await testConnection();
+    setBackendStatus(isConnected ? 'connected' : 'disconnected');
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700">
@@ -53,9 +79,57 @@ const UploadPage: React.FC = () => {
         <p className="text-xl mt-4 opacity-90">
           Architecture Vercel + DistilCamemBERT • Séparation REGEX/NER
         </p>
+        
+        {/* Statut de connexion backend */}
+        <div className="mt-6 flex items-center justify-center gap-2">
+          {backendStatus === 'checking' && (
+            <>
+              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+              <span className="text-sm opacity-75">Vérification du backend...</span>
+            </>
+          )}
+          {backendStatus === 'connected' && (
+            <>
+              <CheckCircle size={16} className="text-green-300" />
+              <span className="text-sm opacity-75">Backend connecté (port 8080)</span>
+            </>
+          )}
+          {backendStatus === 'disconnected' && (
+            <>
+              <WifiOff size={16} className="text-red-300" />
+              <span className="text-sm opacity-75">Backend déconnecté</span>
+              <button
+                onClick={retryConnection}
+                className="ml-2 text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30 transition-colors"
+              >
+                Réessayer
+              </button>
+            </>
+          )}
+        </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-6">
+        {/* Message d'erreur de connexion */}
+        {backendStatus === 'disconnected' && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+            <div className="flex items-start gap-3">
+              <WifiOff size={24} className="text-red-600 flex-shrink-0" />
+              <div>
+                <h3 className="font-semibold text-red-800 mb-2">Backend non connecté</h3>
+                <div className="text-red-700 text-sm space-y-2">
+                  <p>Vérifiez que FastAPI fonctionne correctement :</p>
+                  <div className="bg-red-100 rounded p-3 font-mono text-xs">
+                    <div>1. Ouvrir un terminal dans le dossier /api</div>
+                    <div>2. Exécuter : <strong>uvicorn main:app --host 0.0.0.0 --port 8080</strong></div>
+                    <div>3. Vérifier que le serveur démarre sur http://localhost:8080</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl shadow-2xl p-8 mb-8">
           
           <div
@@ -63,7 +137,7 @@ const UploadPage: React.FC = () => {
             className={`border-2 border-dashed rounded-xl p-12 text-center transition-all cursor-pointer ${
               isDragActive
                 ? 'border-blue-500 bg-blue-50'
-                : isAnalyzing
+                : isAnalyzing || backendStatus !== 'connected'
                 ? 'border-gray-300 bg-gray-50 cursor-not-allowed opacity-50'
                 : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
             }`}
@@ -80,6 +154,16 @@ const UploadPage: React.FC = () => {
                   {mode === 'standard' ? 'Mode standard : 2-5 secondes' : 'Mode approfondi : 5-15 secondes'}
                 </p>
               </div>
+            ) : backendStatus !== 'connected' ? (
+              <>
+                <WifiOff size={64} className="mx-auto mb-4 text-red-400" />
+                <h3 className="text-2xl font-semibold mb-2 text-red-600">
+                  Backend non disponible
+                </h3>
+                <p className="text-red-600">
+                  Démarrez FastAPI sur le port 8080 avant de continuer
+                </p>
+              </>
             ) : (
               <>
                 <Upload size={64} className="mx-auto mb-4 text-gray-400" />
@@ -100,7 +184,7 @@ const UploadPage: React.FC = () => {
             )}
           </div>
 
-          {!isAnalyzing && (
+          {!isAnalyzing && backendStatus === 'connected' && (
             <div className="bg-gray-50 rounded-lg p-6 mt-6">
               <h4 className="font-semibold mb-4">Mode d'analyse :</h4>
               <div className="space-y-3">
