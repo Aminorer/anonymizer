@@ -7,6 +7,9 @@ import json
 import logging
 from datetime import datetime
 import uuid
+import os
+os.environ["TRANSFORMERS_NO_TF"] = "1"
+
 
 from analyzer import hybrid_analyzer, Entity
 from processor import DocumentProcessor
