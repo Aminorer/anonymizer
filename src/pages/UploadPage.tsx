@@ -5,12 +5,23 @@ import { useDropzone } from 'react-dropzone';
 import { Shield, Upload, AlertCircle, CheckCircle, WifiOff } from 'lucide-react';
 import { analyzeDocument, testConnection } from '../services/api';
 import { useAnonymizerStore } from '../stores/anonymizerStore';
+import SelectBox from '../components/SelectBox';
+import ButtonAnalyse from '../components/ButtonAnalyse';
 
 const UploadPage: React.FC = () => {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'standard' | 'approfondi'>('standard');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [backendStatus, setBackendStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
-  const { setSessionData, setEntities, setAnalyzing, setError, error, isAnalyzing } = useAnonymizerStore();
+  const {
+    setSessionData,
+    setEntities,
+    setAnalyzing,
+    setError,
+    error,
+    isAnalyzing,
+    analysisMode,
+    setAnalysisMode
+  } = useAnonymizerStore();
 
   // Test de connexion au démarrage
   useEffect(() => {
@@ -21,11 +32,15 @@ const UploadPage: React.FC = () => {
     checkBackend();
   }, []);
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+  const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
+    setSelectedFile(file);
+  }, []);
 
-    // Vérifier la connexion avant upload
+  const handleAnalyse = useCallback(async () => {
+    if (!selectedFile) return;
+
     if (backendStatus !== 'connected') {
       setError('❌ Backend non connecté. Vérifiez que FastAPI fonctionne sur le port 8080.');
       return;
@@ -35,23 +50,18 @@ const UploadPage: React.FC = () => {
       setError(null);
       setAnalyzing(true);
 
-      console.log('🚀 Upload du fichier:', file.name, 'Mode:', mode);
-      const response = await analyzeDocument(file, mode);
-      
-      console.log('✅ Réponse reçue:', response);
+      const response = await analyzeDocument(selectedFile, analysisMode);
       setSessionData(response.session_id, response.filename, response.text_preview);
       setEntities(response.entities, response.stats);
-      
+
       navigate('/control');
-      
     } catch (err) {
-      console.error('❌ Erreur upload:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erreur lors de l\'analyse du document';
       setError(errorMessage);
     } finally {
       setAnalyzing(false);
     }
-  }, [mode, navigate, setSessionData, setEntities, setAnalyzing, setError, backendStatus]);
+  }, [selectedFile, backendStatus, analysisMode, navigate, setSessionData, setEntities, setAnalyzing, setError]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -151,7 +161,9 @@ const UploadPage: React.FC = () => {
                   Analyse en cours...
                 </h3>
                 <p className="text-gray-500">
-                  {mode === 'standard' ? 'Mode standard : 2-5 secondes' : 'Mode approfondi : 5-15 secondes'}
+                  {analysisMode === 'standard'
+                    ? 'Mode standard : 2-5 secondes'
+                    : 'Mode approfondi : 5-15 secondes'}
                 </p>
               </div>
             ) : backendStatus !== 'connected' ? (
@@ -187,40 +199,25 @@ const UploadPage: React.FC = () => {
           {!isAnalyzing && backendStatus === 'connected' && (
             <div className="bg-gray-50 rounded-lg p-6 mt-6">
               <h4 className="font-semibold mb-4">Mode d'analyse :</h4>
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="mode"
-                    value="standard"
-                    checked={mode === 'standard'}
-                    onChange={(e) => setMode(e.target.value as 'standard')}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <div>
-                    <div className="font-medium">Standard (2-5s)</div>
-                    <div className="text-sm text-gray-600">
-                      REGEX uniquement • Données structurées
-                    </div>
-                  </div>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="mode"
-                    value="approfondi"
-                    checked={mode === 'approfondi'}
-                    onChange={(e) => setMode(e.target.value as 'approfondi')}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <div>
-                    <div className="font-medium">Approfondi (5-15s)</div>
-                    <div className="text-sm text-gray-600">
-                      REGEX + NER DistilCamemBERT • Noms et organisations
-                    </div>
-                  </div>
-                </label>
+              <SelectBox
+                value={analysisMode}
+                onChange={(v) => setAnalysisMode(v as 'standard' | 'approfondi')}
+                options={[
+                  { value: 'standard', label: 'Standard (2-5s)' },
+                  { value: 'approfondi', label: 'Approfondi (5-15s)' }
+                ]}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <div className="text-sm text-gray-600 mt-3">
+                {analysisMode === 'standard'
+                  ? 'REGEX uniquement • Données structurées'
+                  : 'REGEX + NER DistilCamemBERT • Noms et organisations'}
               </div>
+              {selectedFile && (
+                <div className="mt-6 flex justify-center">
+                  <ButtonAnalyse onClick={handleAnalyse} disabled={isAnalyzing} />
+                </div>
+              )}
             </div>
           )}
 

@@ -14,6 +14,7 @@ interface AnonymizerState {
   isGenerating: boolean;
   isLoading: boolean;
   error: string | null;
+  analysisMode: 'standard' | 'approfondi';
   
   // 🆕 NOUVEAUX ÉTATS POUR FONCTIONNALITÉS AVANCÉES
   editingEntity: Entity | null;
@@ -34,6 +35,7 @@ interface AnonymizerState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   getSelectedEntities: () => Entity[];
+  setAnalysisMode: (mode: 'standard' | 'approfondi') => void;
   
   // 🆕 NOUVELLES ACTIONS POUR FONCTIONNALITÉS AVANCÉES
   setEditingEntity: (entity: Entity | null) => void;
@@ -63,6 +65,7 @@ export const useAnonymizerStore = create<AnonymizerState>()(persist((set, get) =
   isGenerating: false,
   isLoading: false,
   error: null,
+  analysisMode: 'standard',
   
   // 🆕 Nouveaux états initialisés
   editingEntity: null,
@@ -110,6 +113,7 @@ export const useAnonymizerStore = create<AnonymizerState>()(persist((set, get) =
   setGenerating: (isGenerating) => set({ isGenerating }),
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
+  setAnalysisMode: (mode) => set({ analysisMode: mode }),
   
   getSelectedEntities: () => {
     const state = get();
