@@ -8,10 +8,9 @@ interface SourceFiltersProps {
 
 const SourceFilters: React.FC<SourceFiltersProps> = ({ className = '' }) => {
   const { 
-    entities, 
-    sourceFilters, 
-    setSourceFilter,
-    stats
+    entities,
+    sourceFilters,
+    setSourceFilter
   } = useAnonymizerStore();
 
   // Statistiques par source

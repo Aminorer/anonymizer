@@ -182,8 +182,8 @@ class HybridAnalyzer:
         all_entities.extend(structured_entities)
         logger.info(f"✅ {len(structured_entities)} entités structurées trouvées (téléphone, SIRET, email, adresse, références)")
         
-        # ÉTAPE 2 : NER (MODE APPROFONDI UNIQUEMENT) - SEULEMENT noms et organisations
-        if mode == "approfondi":
+        # ÉTAPE 2 : NER (TOUS MODES SAUF STANDARD) - SEULEMENT noms et organisations
+        if mode != "standard":
             logger.info("🧠 Extraction entités complexes via NER DistilCamemBERT...")
             ner_entities = await self._extract_ner_entities(text)
             all_entities.extend(ner_entities)

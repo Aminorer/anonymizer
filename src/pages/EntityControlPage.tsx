@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Download, Users, Plus, Edit3, Filter, 
+  ArrowLeft, Download, Users, Plus, Edit3,
   Eye, BarChart3, Settings, AlertTriangle, CheckCircle,
-  Search, X, Trash2
+  Search, X
 } from 'lucide-react';
 import { useAnonymizerStore } from '../stores/anonymizerStore';
 import { generateAnonymizedDocument } from '../services/api';
@@ -36,7 +36,6 @@ const EntityControlPage: React.FC = () => {
     setShowGroupModal,
     setShowEditModal,
     setShowAddEntityModal,
-    editingEntity,
     setEditingEntity,
     selectedEntitiesForGrouping,
     toggleEntity,
@@ -50,6 +49,7 @@ const EntityControlPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [showPreview, setShowPreview] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(50);
 
   // Entités filtrées
   const filteredEntities = useMemo(() => {
@@ -72,6 +72,11 @@ const EntityControlPage: React.FC = () => {
     
     return filtered;
   }, [getFilteredEntities, searchTerm, selectedType]);
+
+  const visibleEntities = useMemo(
+    () => filteredEntities.slice(0, visibleCount),
+    [filteredEntities, visibleCount]
+  );
 
   const handleGenerateDocument = async () => {
     if (!sessionId) return;
@@ -352,7 +357,7 @@ const EntityControlPage: React.FC = () => {
                 )}
 
                 {/* Liste des entités */}
-                <div className="divide-y divide-gray-200">
+                <div className="divide-y divide-gray-200 overflow-x-auto">
                   {filteredEntities.length === 0 ? (
                     <div className="p-12 text-center">
                       <Settings className="mx-auto text-gray-400 mb-4" size={48} />
@@ -367,9 +372,9 @@ const EntityControlPage: React.FC = () => {
                       </p>
                     </div>
                   ) : (
-                    filteredEntities.map((entity) => (
+                    visibleEntities.map((entity) => (
                       <div key={entity.id} className="p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 flex-wrap">
                           
                           {/* Sélection pour anonymisation */}
                           <input
@@ -443,6 +448,16 @@ const EntityControlPage: React.FC = () => {
                         </div>
                       </div>
                     ))
+                  )}
+                  {filteredEntities.length > visibleCount && (
+                    <div className="p-4 text-center">
+                      <button
+                        onClick={() => setVisibleCount(v => v + 50)}
+                        className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+                      >
+                        Charger plus
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
