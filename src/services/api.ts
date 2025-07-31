@@ -83,5 +83,84 @@ export const generateAnonymizedDocument = async (
   return response.data;
 };
 
-// ... autres fonctions API inchangées
+// Synchronisation de la session
+export const syncSession = async (
+  sessionId: string,
+  entities: Entity[],
+  groups: EntityGroup[]
+): Promise<void> => {
+  await api.post('/sync-session', {
+    session_id: sessionId,
+    entities,
+    groups,
+  });
+};
+
+// Ajout d'une entité personnalisée
+export const addCustomEntity = async (
+  sessionId: string,
+  entity: CustomEntity
+): Promise<{ entity: Entity }> => {
+  const formData = new FormData();
+  formData.append('session_id', sessionId);
+  formData.append('text', entity.text);
+  formData.append('entity_type', entity.entity_type);
+  formData.append('replacement', entity.replacement);
+
+  const response = await api.post('/add-entity', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+  return response.data;
+};
+
+// Création d'un groupe d'entités
+export const createEntityGroup = async (
+  sessionId: string,
+  name: string,
+  replacement: string,
+  entityIds: string[]
+): Promise<{ group_id: string }> => {
+  const formData = new FormData();
+  formData.append('session_id', sessionId);
+  formData.append('group_name', name);
+  formData.append('replacement', replacement);
+  formData.append('entity_ids', JSON.stringify(entityIds));
+
+  const response = await api.post('/group-entities', formData);
+  return response.data;
+};
+
+// Modification d'une entité
+export const modifyEntity = async (
+  sessionId: string,
+  entityId: string,
+  newText: string,
+  newReplacement?: string
+): Promise<{ entity: Entity }> => {
+  const formData = new FormData();
+  formData.append('session_id', sessionId);
+  formData.append('entity_id', entityId);
+  formData.append('new_text', newText);
+  if (newReplacement) {
+    formData.append('new_replacement', newReplacement);
+  }
+
+  const response = await api.post('/modify-entity', formData);
+  return response.data;
+};
+
+// Suppression d'un groupe d'entités
+export const removeEntityGroup = async (
+  sessionId: string,
+  groupId: string
+): Promise<void> => {
+  const formData = new FormData();
+  formData.append('session_id', sessionId);
+  formData.append('group_id', groupId);
+
+  await api.delete('/remove-group', { data: formData });
+};
+
+// ... autres fonctions API
 export default api;
