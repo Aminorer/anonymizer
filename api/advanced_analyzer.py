@@ -9,7 +9,18 @@ os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
 
-from transformers import pipeline
+# Use the same defensive import strategy as in ``analyzer`` to guarantee that
+# TensorFlow is never loaded even if it is present in the environment.
+try:
+    from transformers import pipeline
+except ImportError as e:  # pragma: no cover - defensive fallback
+    if "tensorflow" in str(e).lower():
+        import transformers
+
+        transformers.utils.import_utils.is_tf_available = lambda: False
+        from transformers import pipeline
+    else:  # pragma: no cover
+        raise
 from .analyzer import hybrid_analyzer
 
 _NER_PIPELINE = None
@@ -25,6 +36,7 @@ def analyze_advanced(text: str) -> Dict:
             model="cmarkea/distilcamembert-base-ner",
             tokenizer="cmarkea/distilcamembert-base-ner",
             aggregation_strategy="simple",
+            use_fast=False,
         )
     ner_results = _NER_PIPELINE(text)
     existing = {(d["start"], d["end"], d["text"].lower(), d["label"]) for d in entities}
