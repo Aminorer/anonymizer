@@ -84,10 +84,10 @@ class HybridAnalyzer:
         self.structured_patterns = self._compile_structured_patterns()
         logger.info("✅ Patterns REGEX compilés pour données structurées uniquement")
         
-        # PARTIE 2 : Modèle NER DistilCamemBERT (lazy loading pour économiser RAM)
+        # PARTIE 2 : Modèle NER CamemBERT optimisé pour le français
         self._ner_pipeline = None
-        self.ner_model_name = "cmarkea/distilcamembert-base-ner"
-        logger.info("🤖 Modèle NER DistilCamemBERT configuré (lazy loading)")
+        self.ner_model_name = "Jean-Baptiste/camembert-ner"
+        logger.info("🤖 Modèle NER CamemBERT optimisé configuré (lazy loading)")
         
         # Cache pour éviter de recompiler les patterns
         self._pattern_cache = {}
@@ -176,17 +176,52 @@ class HybridAnalyzer:
         if self._ner_pipeline is None:
             logger.info("🔄 Chargement du modèle DistilCamemBERT...")
             try:
-                tokenizer = AutoTokenizer.from_pretrained(
-                    self.ner_model_name, use_fast=False
-                )
-                self._ner_pipeline = pipeline(
-                    "ner",
-                    model=self.ner_model_name,
-                    tokenizer=tokenizer,
-                    aggregation_strategy="simple",
-                    device=-1,  # CPU pour compatibilité Vercel
-                    return_all_scores=False,  # Économie mémoire
-                )
+                try:
+                    from transformers import CamembertTokenizer, CamembertForTokenClassification
+                    
+                    try:
+                        # First attempt with primary model
+                        tokenizer = CamembertTokenizer.from_pretrained(
+                            "camembert-base",
+                            local_files_only=False,
+                            use_fast=False
+                        )
+                        
+                        model = CamembertForTokenClassification.from_pretrained(
+                            self.ner_model_name,
+                            local_files_only=False
+                        )
+                        logger.info("✅ Modèle primaire chargé")
+                    except Exception as primary_error:
+                        # Fallback to Jean-Baptiste's model
+                        logger.warning(f"⚠️ Modèle primaire non disponible, utilisation du modèle de secours: {str(primary_error)}")
+                        self.ner_model_name = "Jean-Baptiste/camembert-ner"
+                        
+                        tokenizer = CamembertTokenizer.from_pretrained(
+                            "camembert-base",
+                            local_files_only=False,
+                            use_fast=False
+                        )
+                        
+                        model = CamembertForTokenClassification.from_pretrained(
+                            self.ner_model_name,
+                            local_files_only=False
+                        )
+                        logger.info("✅ Modèle de secours chargé")
+                    
+                    self._ner_pipeline = pipeline(
+                        "ner",
+                        model=model,
+                        tokenizer=tokenizer,
+                        aggregation_strategy="simple",
+                        device=-1  # CPU pour compatibilité Vercel
+                    )
+                    logger.info("✅ Pipeline NER initialisé avec succès")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Erreur chargement NER (tous modèles): {str(e)}")
+                    self._ner_pipeline = None
+                    logger.warning("⚠️ Mode NER désactivé - utilisation regex uniquement")
                 logger.info("✅ Modèle DistilCamemBERT chargé avec succès")
             except Exception as e:
                 logger.error(f"❌ Erreur chargement DistilCamemBERT: {e}")

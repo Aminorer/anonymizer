@@ -19,13 +19,18 @@ def test_distilcamembert():
             raise
 
     tokenizer = AutoTokenizer.from_pretrained(
-        "cmarkea/distilcamembert-base-ner", use_fast=False
+        "allocation-de-parole/camembert-base-ner",
+        use_fast=True,
+        local_files_only=False
     )
     ner = pipeline(
         "ner",
-        model="cmarkea/distilcamembert-base-ner",
+        model="allocation-de-parole/camembert-base-ner",
         tokenizer=tokenizer,
+        aggregation_strategy="simple",
         device=-1,
+        framework="pt",
+        return_all_scores=False
     )
     result = ner("Jean Dupont travaille chez OpenAI.")
     print("✅ DistilCamemBERT fonctionne:", result)
