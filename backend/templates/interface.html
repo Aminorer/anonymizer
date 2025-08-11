@@ -1,35 +1,56 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Interface Unifiée</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
+  <meta charset="UTF-8" />
+  <title>Interface Unifiée</title>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <link rel="stylesheet" href="/static/css/interface.css" />
 </head>
 <body>
+  <div id="app">
     <h2>Interface Unifiée</h2>
-    <div style="display:flex;">
-        <div style="flex:7; border:1px solid #ccc; padding:10px;">
-            <p>Visualisateur du document (placeholder)</p>
-        </div>
-        <div style="flex:3; border:1px solid #ccc; padding:10px;">
-            <p>Panneau latéral avec onglets (placeholder)</p>
-        </div>
+    <div class="controls">
+      <button @click="changeView('original')">Original</button>
+      <button @click="changeView('anonymized')">Anonymisé</button>
+      <button @click="zoomIn">Zoom +</button>
+      <button @click="zoomOut">Zoom -</button>
     </div>
-    <div id="result"></div>
-
-    <script>
-        const params = new URLSearchParams(window.location.search);
-        const jobId = params.get('job_id');
-        if (jobId) {
-            fetch(`/status/${jobId}`)
-                .then((r) => r.json())
-                .then((data) => {
-                    if (data.result && data.result.download_url) {
-                        const res = document.getElementById('result');
-                        res.innerHTML = `<a href="${data.result.download_url}">Télécharger le résultat</a>`;
-                    }
-                });
-        }
-    </script>
+    <div class="container">
+      <div id="viewer" class="viewer"></div>
+      <div class="side-panel">
+        <div class="tabs">
+          <button @click="activeTab='entities'">Entités</button>
+          <button @click="activeTab='groups'">Groupes</button>
+          <button @click="activeTab='search'">Recherche</button>
+          <button @click="activeTab='rules'">Règles</button>
+        </div>
+        <div v-if="activeTab==='entities'">
+          <ul class="entity-list">
+            <li v-for="ent in entities" :key="ent.start" @click="highlightEntity(ent.type)">
+              {{ ent.type }} : {{ ent.value }}
+            </li>
+          </ul>
+        </div>
+        <div v-if="activeTab==='groups'">
+          <p>Groupes (placeholder)</p>
+        </div>
+        <div v-if="activeTab==='search'">
+          <input v-model="searchTerm" placeholder="Rechercher" />
+          <button @click="search">Go</button>
+        </div>
+        <div v-if="activeTab==='rules'">
+          <p>Règles (placeholder)</p>
+        </div>
+      </div>
+    </div>
+    <div id="download" v-if="status">
+      <a :href="status.download_url">Télécharger anonymisé</a> |
+      <a :href="status.original_url">Télécharger original</a>
+    </div>
+  </div>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://unpkg.com/docx-preview@0.4.1/dist/docx-preview.js"></script>
+  <script src="/static/js/app.js"></script>
 </body>
 </html>
