@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 import re
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from io import BytesIO
 
 import pdfplumber
 from docx import Document
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
 
 @dataclass
@@ -79,27 +80,82 @@ class RegexAnonymizer:
         return "".join(parts), mapping
 
     def anonymize_docx(self, data: bytes) -> Tuple[bytes, List[Entity], List[Tuple[int, int, int, int]], str]:
-        """Anonymize a DOCX document and expose mapping information.
+        """Anonymize a DOCX document while preserving structure and metadata.
 
         Returns the anonymized document bytes, detected entities, the mapping
         between plain text and DOCX runs and the plain text itself.
         """
 
         doc = Document(BytesIO(data))
+        core_props = {
+            "author": doc.core_properties.author,
+            "title": doc.core_properties.title,
+            "subject": doc.core_properties.subject,
+        }
         text, mapping = self.docx_text_mapping(doc)
         entities = self.detect(text)
 
-        # Replace entities in runs to preserve formatting
-        for para in doc.paragraphs:
-            for run in para.runs:
-                for etype, pattern in self.PATTERNS.items():
-                    if pattern.search(run.text):
-                        run.text = pattern.sub(f"[{etype}]", run.text)
+        def replace_in_paragraphs(paragraphs):
+            for para in paragraphs:
+                for run in para.runs:
+                    for etype, pattern in self.PATTERNS.items():
+                        if pattern.search(run.text):
+                            run.text = pattern.sub(f"[{etype}]", run.text)
+
+        # Replace in body paragraphs
+        replace_in_paragraphs(doc.paragraphs)
+        # Replace in tables
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    replace_in_paragraphs(cell.paragraphs)
+        # Replace in headers and footers
+        for section in doc.sections:
+            replace_in_paragraphs(section.header.paragraphs)
+            replace_in_paragraphs(section.footer.paragraphs)
+
+        # Restore metadata explicitly
+        doc.core_properties.author = core_props["author"]
+        doc.core_properties.title = core_props["title"]
+        doc.core_properties.subject = core_props["subject"]
 
         output = BytesIO()
         doc.save(output)
         output.seek(0)
         return output.read(), entities, mapping, text
+
+    def export_docx(
+        self,
+        data: bytes,
+        entities: Optional[List[Entity]] = None,
+        watermark: Optional[str] = None,
+        audit: bool = False,
+    ) -> Tuple[bytes, Optional[str]]:
+        """Apply export options like watermark or audit report to ``data``.
+
+        Returns the modified document bytes and optionally the audit report
+        string if ``audit`` is True.
+        """
+
+        doc = Document(BytesIO(data))
+
+        if watermark:
+            for section in doc.sections:
+                header = section.header
+                para = header.add_paragraph()
+                run = para.add_run(watermark)
+                run.font.color.rgb = None
+                run.font.bold = True
+
+        report: Optional[str] = None
+        if audit and entities:
+            report_lines = [f"{e.type}: {e.value}" for e in entities]
+            report = "\n".join(report_lines)
+
+        output = BytesIO()
+        doc.save(output)
+        output.seek(0)
+        return output.read(), report
 
     # ------------------------------------------------------------------
     # PDF utilities

@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, BackgroundTasks
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -43,6 +43,11 @@ class GroupModel(BaseModel):
 
 entities_db: dict[str, EntityModel] = {}
 groups_db: dict[str, GroupModel] = {}
+
+
+class ExportOptions(BaseModel):
+    watermark: str | None = None
+    audit: bool = False
 
 # configuration model for rules
 class RegexRule(BaseModel):
@@ -311,3 +316,32 @@ def semantic_search(job_id: str, q: str):
     words = set(text.split())
     matches = get_close_matches(q, list(words), n=10, cutoff=0.8)
     return {"matches": matches}
+
+
+@app.post("/export/{job_id}")
+async def export_job(job_id: str, opts: ExportOptions):
+    """Apply export options such as watermark and audit report."""
+    job = jobs.get(job_id)
+    if not job or "result" not in job:
+        raise HTTPException(status_code=404, detail="Job inconnu")
+    result = job["result"]
+    src_path = Path("backend") / result["download_url"].lstrip("/")
+    if not src_path.exists():
+        raise HTTPException(status_code=404, detail="Document non trouvé")
+    data = src_path.read_bytes()
+    entities = [Entity(**e) for e in result.get("entities", [])]
+    modified, report = regex_anonymizer.export_docx(
+        data, entities=entities, watermark=opts.watermark, audit=opts.audit
+    )
+    output_dir = Path("backend/static/exports")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    out_filename = f"{uuid4().hex}_{Path(result['filename']).stem}.docx"
+    out_path = output_dir / out_filename
+    out_path.write_bytes(modified)
+    response = {"download_url": f"/static/exports/{out_filename}"}
+    if report:
+        audit_filename = f"{uuid4().hex}_audit.txt"
+        audit_path = output_dir / audit_filename
+        audit_path.write_text(report, encoding="utf-8")
+        response["audit_url"] = f"/static/exports/{audit_filename}"
+    return JSONResponse(response)
