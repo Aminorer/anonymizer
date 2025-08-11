@@ -21,6 +21,13 @@ uvicorn backend.main:app --reload
 
 Ouvrir ensuite [http://localhost:8000](http://localhost:8000) pour accéder à la page d'accueil.
 
+## Fonctionnalités actuelles
+
+- Upload d'un fichier DOCX (≤25 Mo) via le formulaire d'accueil
+- Détection et anonymisation par **Regex** des entités suivantes :
+  `LOC`, `ADDRESS`, `EMAIL`, `PHONE`, `DATE`, `IBAN`, `SIREN`, `SIRET`
+- Téléchargement d'un DOCX anonymisé tout en conservant la mise en forme
+
 ## Fonctionnalités prévues
 - **Mode Regex** : détection rapide de 8 entités (LOC, ADDRESS, EMAIL, PHONE, DATE, IBAN, SIREN, SIRET)
 - **Mode IA** : détection étendue via NER et Regex avec réglage de la confiance
