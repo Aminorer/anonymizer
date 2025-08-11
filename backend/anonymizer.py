@@ -78,8 +78,12 @@ class RegexAnonymizer:
                 pos += 1
         return "".join(parts), mapping
 
-    def anonymize_docx(self, data: bytes) -> Tuple[bytes, List[Entity], List[Tuple[int, int, int, int]]]:
-        """Anonymize a DOCX document and expose mapping information."""
+    def anonymize_docx(self, data: bytes) -> Tuple[bytes, List[Entity], List[Tuple[int, int, int, int]], str]:
+        """Anonymize a DOCX document and expose mapping information.
+
+        Returns the anonymized document bytes, detected entities, the mapping
+        between plain text and DOCX runs and the plain text itself.
+        """
 
         doc = Document(BytesIO(data))
         text, mapping = self.docx_text_mapping(doc)
@@ -95,12 +99,15 @@ class RegexAnonymizer:
         output = BytesIO()
         doc.save(output)
         output.seek(0)
-        return output.read(), entities, mapping
+        return output.read(), entities, mapping, text
 
     # ------------------------------------------------------------------
     # PDF utilities
-    def anonymize_pdf(self, data: bytes) -> Tuple[str, List[Entity]]:
-        """Extract text from a PDF, anonymize it and return positions."""
+    def anonymize_pdf(self, data: bytes) -> Tuple[str, List[Entity], str]:
+        """Extract text from a PDF, anonymize it and return positions.
+
+        Returns the anonymized text, detected entities and the original text.
+        """
 
         with pdfplumber.open(BytesIO(data)) as pdf:
             pages = [page.extract_text() or "" for page in pdf.pages]
@@ -109,4 +116,4 @@ class RegexAnonymizer:
         anonymized_text = text
         for etype, pattern in self.PATTERNS.items():
             anonymized_text = pattern.sub(f"[{etype}]", anonymized_text)
-        return anonymized_text, entities
+        return anonymized_text, entities, text

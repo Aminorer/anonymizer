@@ -4,11 +4,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from uuid import uuid4
 from pathlib import Path
-from .anonymizer import RegexAnonymizer
+from .anonymizer import RegexAnonymizer, Entity
+from .ai_anonymizer import AIAnonymizer
 import os
 
 app = FastAPI(title="Anonymiseur de documents juridiques")
-anonymizer = RegexAnonymizer()
+regex_anonymizer = RegexAnonymizer()
+ai_anonymizer = AIAnonymizer()
 
 # Mount static files and templates
 app.mount("/static", StaticFiles(directory="backend/static"), name="static")
@@ -17,13 +19,28 @@ templates = Jinja2Templates(directory="backend/templates")
 ALLOWED_EXTENSIONS = {"pdf", "docx"}
 MAX_FILE_SIZE_MB = 25
 
+
+def merge_entities(a: list[Entity], b: list[Entity]) -> list[Entity]:
+    seen = set()
+    merged = []
+    for ent in a + b:
+        key = (ent.start, ent.end, ent.type, ent.value)
+        if key not in seen:
+            seen.add(key)
+            merged.append(ent)
+    return merged
+
 @app.get("/", response_class=HTMLResponse)
 def read_index(request: Request):
     """Render the upload page."""
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/upload")
-async def upload_file(mode: str = Form(...), file: UploadFile = File(...)):
+async def upload_file(
+    mode: str = Form(...),
+    confidence: float = Form(0.5),
+    file: UploadFile = File(...),
+):
     """Handle file upload, anonymize and return detected entities."""
     extension = file.filename.split(".")[-1].lower()
     if extension not in ALLOWED_EXTENSIONS:
@@ -34,10 +51,18 @@ async def upload_file(mode: str = Form(...), file: UploadFile = File(...)):
     if size_mb > MAX_FILE_SIZE_MB:
         raise HTTPException(status_code=400, detail="Fichier trop volumineux")
 
-    if mode != "regex":
-        raise HTTPException(status_code=501, detail="Mode IA non implémenté")
+    if mode not in {"regex", "ai"}:
+        raise HTTPException(status_code=400, detail="Mode inconnu")
+
     if extension == "docx":
-        anonymized_data, entities, positions = anonymizer.anonymize_docx(contents)
+        anonymized_data, regex_entities, positions, text = regex_anonymizer.anonymize_docx(
+            contents
+        )
+        if mode == "ai":
+            ai_entities = ai_anonymizer.detect(text, confidence)
+            entities = merge_entities(regex_entities, ai_entities)
+        else:
+            entities = regex_entities
 
         output_dir = Path("backend/static/uploads")
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -53,7 +78,13 @@ async def upload_file(mode: str = Form(...), file: UploadFile = File(...)):
             "download_url": f"/static/uploads/{output_filename}",
         }
     else:
-        anonymized_text, entities = anonymizer.anonymize_pdf(contents)
+        anonymized_text, regex_entities, text = regex_anonymizer.anonymize_pdf(contents)
+        if mode == "ai":
+            ai_entities = ai_anonymizer.detect(text, confidence)
+            entities = merge_entities(regex_entities, ai_entities)
+        else:
+            entities = regex_entities
+
         output_dir = Path("backend/static/uploads")
         output_dir.mkdir(parents=True, exist_ok=True)
         output_filename = f"{uuid4().hex}_{Path(file.filename).stem}.txt"
