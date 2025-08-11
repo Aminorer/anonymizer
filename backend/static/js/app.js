@@ -74,8 +74,12 @@
       const zoom = ref(1);
       const activeTab = ref('entities');
       const searchTerm = ref('');
+      const searchType = ref('text');
       const selected = ref([]);
       const dragIndex = ref(null);
+      const showDetectionModal = ref(false);
+      const showGroupModal = ref(false);
+      const newDetection = ref({ type: '', value: '' });
 
       const entityStore = useEntityStore();
       const groupStore = useGroupStore();
@@ -184,10 +188,21 @@
         await renderDoc();
       };
 
-      const search = () => {
-        document.querySelectorAll('.search-highlight').forEach((el) => el.classList.remove('search-highlight'));
+      const search = async () => {
+        document
+          .querySelectorAll('.search-highlight')
+          .forEach((el) => el.classList.remove('search-highlight'));
         if (!searchTerm.value) return;
-        const regex = new RegExp(searchTerm.value, 'gi');
+        let terms = [searchTerm.value];
+        if (searchType.value === 'semantic') {
+          const res = await fetch(`/semantic-search/${jobId}?q=${encodeURIComponent(searchTerm.value)}`);
+          const data = await res.json();
+          if (data.matches && data.matches.length) terms = data.matches;
+        }
+        const regex =
+          searchType.value === 'regex'
+            ? new RegExp(searchTerm.value, 'gi')
+            : new RegExp(terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
         const walker = document.createTreeWalker(document.getElementById('viewer'), NodeFilter.SHOW_TEXT);
         const nodes = [];
         let node;
@@ -212,8 +227,6 @@
           if (frag.childNodes.length) n.parentNode.replaceChild(frag, n);
         });
       };
-
-(function init() {
       onMounted(async () => {
         await loadStatus();
         await groupStore.fetch();
@@ -229,9 +242,6 @@
         dragIndex.value = null;
       };
 
-      const addEntity = async () => {
-        await entityStore.add({ type: '', value: '', start: 0, end: 0 });
-      };
       const updateEntity = async (ent) => {
         await entityStore.update(ent);
       };
@@ -241,10 +251,23 @@
       };
 
       const newGroupName = ref('');
-      const addGroup = async () => {
+      const confirmGroup = async () => {
         if (!newGroupName.value) return;
         await groupStore.add({ name: newGroupName.value, entities: [] });
         newGroupName.value = '';
+        showGroupModal.value = false;
+      };
+      const confirmDetection = async () => {
+        if (!newDetection.value.type || !newDetection.value.value) return;
+        await entityStore.add({
+          id: crypto.randomUUID(),
+          type: newDetection.value.type,
+          value: newDetection.value.value,
+          start: 0,
+          end: 0,
+        });
+        newDetection.value = { type: '', value: '' };
+        showDetectionModal.value = false;
       };
       const deleteGroup = async (id) => {
         await groupStore.remove(id);
@@ -263,6 +286,7 @@
         entities,
         highlightEntity,
         searchTerm,
+        searchType,
         search,
         status,
         entityStore,
@@ -270,14 +294,17 @@
         selected,
         dragStart,
         drop,
-        addEntity,
         updateEntity,
         deleteSelected,
         newGroupName,
-        addGroup,
+        confirmGroup,
+        confirmDetection,
         deleteGroup,
         assignToGroup,
+        showDetectionModal,
+        showGroupModal,
+        newDetection,
       };
-    })(),
+    }
   }).use(pinia).mount('#app');
 })();

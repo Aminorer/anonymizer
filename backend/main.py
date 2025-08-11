@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from uuid import uuid4
 from pathlib import Path
+from difflib import get_close_matches
 from .anonymizer import RegexAnonymizer, Entity
 from .ai_anonymizer import AIAnonymizer
 import os
@@ -257,3 +258,15 @@ def add_entity_to_group(group_id: str, entity_id: str) -> GroupModel:
         group.entities.append(entity_id)
     entity.group_id = group_id
     return group
+
+
+@app.get("/semantic-search/{job_id}")
+def semantic_search(job_id: str, q: str):
+    """Return words similar to the query using a simple fuzzy match."""
+    job = jobs.get(job_id)
+    if not job or "result" not in job or "text" not in job["result"]:
+        raise HTTPException(status_code=404, detail="Job inconnu")
+    text = job["result"]["text"]
+    words = set(text.split())
+    matches = get_close_matches(q, list(words), n=10, cutoff=0.8)
+    return {"matches": matches}
