@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Interface Unifiée</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        #viewer { border:1px solid #ccc; padding:10px; height:70vh; overflow:auto; }
+        mark { background: yellow; }
+        table { width:100%; border-collapse: collapse; }
+        th, td { border:1px solid #ccc; padding:4px; }
+    </style>
+</head>
+<body>
+    <h2>Interface Unifiée</h2>
+    <div style="display:flex; gap:10px;">
+        <div style="flex:7;">
+            <button id="toggle">Afficher anonymisé</button>
+            <div id="viewer"></div>
+        </div>
+        <div style="flex:3;">
+            <table id="entities-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Valeur</th>
+                        <th>Remplacement</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <button id="download">Télécharger DOCX anonymisé</button>
+        </div>
+    </div>
+
+    <script>
+    const entities = {{ entities|tojson }};
+    const text = {{ text|tojson }};
+    let mode = 'original';
+
+    function escapeHtml(str){
+        return str.replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function renderText(){
+        let html='';
+        let last=0;
+        entities.forEach(ent=>{
+            html += escapeHtml(text.slice(last, ent.start));
+            const val = mode==='anonymized' ? ent.replacement : ent.value;
+            html += `<mark data-id="${ent.id}">${escapeHtml(val)}</mark>`;
+            last = ent.end;
+        });
+        html += escapeHtml(text.slice(last));
+        document.getElementById('viewer').innerHTML = html;
+    }
+
+    function buildTable(){
+        const tbody = document.querySelector('#entities-table tbody');
+        entities.forEach(ent=>{
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${ent.type}</td><td>${escapeHtml(ent.value)}</td>`+
+                `<td><input data-id="${ent.id}" value="${escapeHtml(ent.replacement)}"></td>`+
+                `<td>${ent.source}</td>`;
+            tbody.appendChild(tr);
+        });
+        tbody.addEventListener('input', e=>{
+            const id = e.target.getAttribute('data-id');
+            const ent = entities.find(x=>x.id===id);
+            if(ent){ ent.replacement = e.target.value; renderText(); }
+        });
+    }
+
+    document.getElementById('toggle').addEventListener('click',()=>{
+        mode = mode==='original' ? 'anonymized' : 'original';
+        document.getElementById('toggle').innerText = mode==='original' ? 'Afficher anonymisé' : 'Afficher original';
+        renderText();
+    });
+
+    document.getElementById('download').addEventListener('click', async ()=>{
+        const resp = await fetch('/download/{{session_id}}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({entities})
+        });
+        const blob = await resp.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'anonymized.docx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    });
+
+    buildTable();
+    renderText();
+    </script>
+</body>
+</html>
