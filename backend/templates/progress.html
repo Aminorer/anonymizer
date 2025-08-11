@@ -7,12 +7,27 @@
 </head>
 <body>
     <h2>Analyse en cours...</h2>
-    <div id="progress">
-        <!-- Placeholder progress bar -->
-        <div style="width: 50%; background: lightgray;">
-            <div style="width: 25%; height: 20px; background: green;"></div>
-        </div>
+    <div id="progress-container">
+        <div id="progress-bar"></div>
     </div>
     <p>Préservation du format original en cours...</p>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const jobId = params.get('job_id');
+        const bar = document.getElementById('progress-bar');
+
+        async function checkStatus() {
+            const res = await fetch(`/status/${jobId}`);
+            const data = await res.json();
+            bar.style.width = `${data.progress}%`;
+            if (data.status === 'completed') {
+                window.location.href = `/interface?job_id=${jobId}`;
+            }
+        }
+
+        checkStatus();
+        setInterval(checkStatus, 1000);
+    </script>
 </body>
 </html>
