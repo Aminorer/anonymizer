@@ -34,26 +34,39 @@ async def upload_file(mode: str = Form(...), file: UploadFile = File(...)):
     if size_mb > MAX_FILE_SIZE_MB:
         raise HTTPException(status_code=400, detail="Fichier trop volumineux")
 
-    if extension != "docx":
-        raise HTTPException(status_code=501, detail="Seuls les fichiers DOCX sont supportés")
-
     if mode != "regex":
         raise HTTPException(status_code=501, detail="Mode IA non implémenté")
+    if extension == "docx":
+        anonymized_data, entities, positions = anonymizer.anonymize_docx(contents)
 
-    anonymized_data, entities = anonymizer.anonymize_docx(contents)
+        output_dir = Path("backend/static/uploads")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_filename = f"{uuid4().hex}_{file.filename}"
+        output_path = output_dir / output_filename
+        with open(output_path, "wb") as f:
+            f.write(anonymized_data)
 
-    output_dir = Path("backend/static/uploads")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_filename = f"{uuid4().hex}_{file.filename}"
-    output_path = output_dir / output_filename
-    with open(output_path, "wb") as f:
-        f.write(anonymized_data)
+        return {
+            "filename": file.filename,
+            "entities": [e.__dict__ for e in entities],
+            "positions": positions,
+            "download_url": f"/static/uploads/{output_filename}",
+        }
+    else:
+        anonymized_text, entities = anonymizer.anonymize_pdf(contents)
+        output_dir = Path("backend/static/uploads")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_filename = f"{uuid4().hex}_{Path(file.filename).stem}.txt"
+        output_path = output_dir / output_filename
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(anonymized_text)
 
-    return {
-        "filename": file.filename,
-        "entities": [e.__dict__ for e in entities],
-        "download_url": f"/static/uploads/{output_filename}",
-    }
+        return {
+            "filename": file.filename,
+            "text": anonymized_text,
+            "entities": [e.__dict__ for e in entities],
+            "download_url": f"/static/uploads/{output_filename}",
+        }
 
 @app.get("/progress", response_class=HTMLResponse)
 def progress_page(request: Request):

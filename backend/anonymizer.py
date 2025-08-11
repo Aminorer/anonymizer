@@ -2,6 +2,8 @@ from dataclasses import dataclass
 import re
 from typing import List, Tuple
 from io import BytesIO
+
+import pdfplumber
 from docx import Document
 
 
@@ -9,10 +11,17 @@ from docx import Document
 class Entity:
     type: str
     value: str
+    start: int
+    end: int
 
 
 class RegexAnonymizer:
-    """Simple regex-based anonymizer for DOCX files."""
+    """Regex based anonymizer for DOCX and PDF files.
+
+    Besides anonymization it also exposes utilities to map positions
+    between the plain extracted text and DOCX runs so that callers can
+    later locate and modify text while preserving formatting.
+    """
 
     PATTERNS = {
         "EMAIL": re.compile(r"[\w\.-]+@[\w\.-]+", re.IGNORECASE),
@@ -28,18 +37,52 @@ class RegexAnonymizer:
     }
 
     def detect(self, text: str) -> List[Entity]:
+        """Detect entities in ``text`` and return their positions."""
         entities: List[Entity] = []
         for etype, pattern in self.PATTERNS.items():
             for match in pattern.finditer(text):
-                entities.append(Entity(type=etype, value=match.group()))
+                entities.append(
+                    Entity(
+                        type=etype,
+                        value=match.group(),
+                        start=match.start(),
+                        end=match.end(),
+                    )
+                )
         return entities
 
-    def anonymize_docx(self, data: bytes) -> Tuple[bytes, List[Entity]]:
+    # ------------------------------------------------------------------
+    # DOCX utilities
+    def docx_text_mapping(self, doc: Document) -> Tuple[str, List[Tuple[int, int, int, int]]]:
+        """Return full text of ``doc`` and mapping to paragraph/run indices.
+
+        The mapping is a list of tuples ``(start, end, p_idx, r_idx)`` where
+        ``start`` and ``end`` are character offsets in the plain text
+        representation and ``p_idx``/``r_idx`` refer to the corresponding
+        paragraph and run indices in the original document.
+        """
+
+        parts: List[str] = []
+        mapping: List[Tuple[int, int, int, int]] = []
+        pos = 0
+        for p_idx, para in enumerate(doc.paragraphs):
+            for r_idx, run in enumerate(para.runs):
+                text = run.text
+                start = pos
+                end = start + len(text)
+                parts.append(text)
+                mapping.append((start, end, p_idx, r_idx))
+                pos = end
+            if p_idx < len(doc.paragraphs) - 1:
+                parts.append("\n")
+                pos += 1
+        return "".join(parts), mapping
+
+    def anonymize_docx(self, data: bytes) -> Tuple[bytes, List[Entity], List[Tuple[int, int, int, int]]]:
+        """Anonymize a DOCX document and expose mapping information."""
+
         doc = Document(BytesIO(data))
-        full_text = []
-        for para in doc.paragraphs:
-            full_text.append(para.text)
-        text = "\n".join(full_text)
+        text, mapping = self.docx_text_mapping(doc)
         entities = self.detect(text)
 
         # Replace entities in runs to preserve formatting
@@ -52,4 +95,18 @@ class RegexAnonymizer:
         output = BytesIO()
         doc.save(output)
         output.seek(0)
-        return output.read(), entities
+        return output.read(), entities, mapping
+
+    # ------------------------------------------------------------------
+    # PDF utilities
+    def anonymize_pdf(self, data: bytes) -> Tuple[str, List[Entity]]:
+        """Extract text from a PDF, anonymize it and return positions."""
+
+        with pdfplumber.open(BytesIO(data)) as pdf:
+            pages = [page.extract_text() or "" for page in pdf.pages]
+        text = "\n".join(pages)
+        entities = self.detect(text)
+        anonymized_text = text
+        for etype, pattern in self.PATTERNS.items():
+            anonymized_text = pattern.sub(f"[{etype}]", anonymized_text)
+        return anonymized_text, entities
