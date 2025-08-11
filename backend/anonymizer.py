@@ -127,17 +127,56 @@ class RegexAnonymizer:
     def export_docx(
         self,
         data: bytes,
+        mapping: Optional[List[Tuple[int, int, int, int]]] = None,
         entities: Optional[List[Entity]] = None,
         watermark: Optional[str] = None,
         audit: bool = False,
     ) -> Tuple[bytes, Optional[str]]:
-        """Apply export options like watermark or audit report to ``data``.
+        """Apply modifications and export options to a DOCX document.
 
-        Returns the modified document bytes and optionally the audit report
-        string if ``audit`` is True.
+        ``mapping`` should contain tuples ``(start, end, p_idx, r_idx)`` mapping
+        character positions in the extracted text to paragraph/run indices. The
+        ``entities`` list contains the potentially modified entities whose
+        ranges will be replaced in the document. If the entity ``value`` is
+        unchanged compared to the original text, it will be replaced by a
+        placeholder ``[TYPE]``.
+
+        The function returns the modified document bytes and optionally an
+        audit report if ``audit`` is True.
         """
 
         doc = Document(BytesIO(data))
+
+        if entities and mapping:
+            def _original_text(ent: Entity) -> str:
+                parts: List[str] = []
+                for m_start, m_end, p_idx, r_idx in mapping:
+                    if m_end <= ent.start or m_start >= ent.end:
+                        continue
+                    run = doc.paragraphs[p_idx].runs[r_idx]
+                    rs = max(ent.start, m_start) - m_start
+                    re = min(ent.end, m_end) - m_start
+                    parts.append(run.text[rs:re])
+                return "".join(parts)
+
+            for ent in entities:
+                original = _original_text(ent)
+                replacement = ent.value
+                if replacement == original:
+                    replacement = f"[{ent.type}]"
+
+                first = True
+                for m_start, m_end, p_idx, r_idx in mapping:
+                    if m_end <= ent.start or m_start >= ent.end:
+                        continue
+                    run = doc.paragraphs[p_idx].runs[r_idx]
+                    rs = max(ent.start, m_start) - m_start
+                    re = min(ent.end, m_end) - m_start
+                    if first:
+                        run.text = run.text[:rs] + replacement + run.text[re:]
+                        first = False
+                    else:
+                        run.text = run.text[:rs] + run.text[re:]
 
         if watermark:
             for section in doc.sections:
