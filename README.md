@@ -1,6 +1,25 @@
 # Projet Anonymiseur Juridique
 
-Ce dépôt a été réinitialisé pour démarrer le développement d'une application d'anonymisation de documents juridiques.
+Ce dépôt contient une base minimale pour développer une application d'anonymisation de documents juridiques. L'objectif final est d'offrir une interface permettant d'uploader un document (DOCX ou PDF), d'analyser les entités sensibles puis de télécharger un DOCX anonymisé tout en préservant le format original.
+
+## Structure du projet
+
+```
+backend/
+  main.py             # API FastAPI basique (upload, pages placeholder)
+  requirements.txt    # Dépendances backend
+  templates/          # Pages HTML (index, progression, interface)
+  static/             # Fichiers statiques (CSS)
+```
+
+## Démarrer le serveur de développement
+
+```bash
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload
+```
+
+Ouvrir ensuite [http://localhost:8000](http://localhost:8000) pour accéder à la page d'accueil.
 
 ## Fonctionnalités prévues
 - **Mode Regex** : détection rapide de 8 entités (LOC, ADDRESS, EMAIL, PHONE, DATE, IBAN, SIREN, SIRET)
