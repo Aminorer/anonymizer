@@ -26,7 +26,7 @@
         </div>
         <div v-if="activeTab==='entities'">
           <div class="entity-actions">
-            <button @click="addEntity">Ajouter</button>
+            <button @click="showDetectionModal=true">Ajouter détection</button>
             <button @click="deleteSelected">Supprimer sélection</button>
           </div>
           <table class="entity-table">
@@ -45,8 +45,7 @@
         </div>
         <div v-if="activeTab==='groups'">
           <div class="group-actions">
-            <input v-model="newGroupName" placeholder="Nom du groupe" />
-            <button @click="addGroup">Ajouter</button>
+            <button @click="showGroupModal=true">Créer groupe</button>
           </div>
           <ul class="group-list">
             <li v-for="grp in groupStore.items" :key="grp.id" @dragover.prevent @drop="assignToGroup(grp.id,$event)">
@@ -56,12 +55,34 @@
           </ul>
         </div>
         <div v-if="activeTab==='search'">
+          <select v-model="searchType">
+            <option value="text">Texte</option>
+            <option value="regex">Regex</option>
+            <option value="semantic">Sémantique</option>
+          </select>
           <input v-model="searchTerm" placeholder="Rechercher" />
           <button @click="search">Go</button>
         </div>
         <div v-if="activeTab==='rules'">
           <p>Règles (placeholder)</p>
         </div>
+      </div>
+    </div>
+    <div v-if="showDetectionModal" class="modal">
+      <div class="modal-content">
+        <h3>Ajouter détection</h3>
+        <input v-model="newDetection.type" placeholder="Type" />
+        <input v-model="newDetection.value" placeholder="Valeur" />
+        <button @click="confirmDetection">Ajouter</button>
+        <button @click="showDetectionModal=false">Annuler</button>
+      </div>
+    </div>
+    <div v-if="showGroupModal" class="modal">
+      <div class="modal-content">
+        <h3>Créer groupe</h3>
+        <input v-model="newGroupName" placeholder="Nom du groupe" />
+        <button @click="confirmGroup">Créer</button>
+        <button @click="showGroupModal=false">Annuler</button>
       </div>
     </div>
     <div id="download" v-if="status">
