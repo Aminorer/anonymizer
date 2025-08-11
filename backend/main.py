@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Bac
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from uuid import uuid4
 from pathlib import Path
 from .anonymizer import RegexAnonymizer, Entity
@@ -21,6 +22,25 @@ MAX_FILE_SIZE_MB = 25
 
 # simple in-memory job store
 jobs: dict[str, dict] = {}
+
+# in-memory stores for entities and groups
+class EntityModel(BaseModel):
+    id: str
+    type: str
+    value: str
+    start: int = 0
+    end: int = 0
+    group_id: str | None = None
+
+
+class GroupModel(BaseModel):
+    id: str
+    name: str
+    entities: list[str] = []
+
+
+entities_db: dict[str, EntityModel] = {}
+groups_db: dict[str, GroupModel] = {}
 
 
 def merge_entities(a: list[Entity], b: list[Entity]) -> list[Entity]:
@@ -145,3 +165,95 @@ def get_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job inconnu")
     return job
+
+
+# ---------------------------------------------------------------------------
+# REST endpoints for entities and groups
+
+
+@app.get("/entities")
+def list_entities() -> list[EntityModel]:
+    """Return all stored entities."""
+    return list(entities_db.values())
+
+
+@app.post("/entities")
+def create_entity(entity: EntityModel) -> EntityModel:
+    """Create a new entity."""
+    if not entity.id:
+        entity.id = uuid4().hex
+    entities_db[entity.id] = entity
+    return entity
+
+
+@app.put("/entities/{entity_id}")
+def update_entity(entity_id: str, entity: EntityModel) -> EntityModel:
+    """Update an existing entity."""
+    if entity_id not in entities_db:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    entity.id = entity_id
+    entities_db[entity_id] = entity
+    return entity
+
+
+@app.delete("/entities/{entity_id}")
+def delete_entity(entity_id: str):
+    """Remove an entity and detach it from groups."""
+    if entity_id in entities_db:
+        del entities_db[entity_id]
+    for group in groups_db.values():
+        if entity_id in group.entities:
+            group.entities.remove(entity_id)
+    return {"status": "deleted"}
+
+
+@app.get("/groups")
+def list_groups() -> list[GroupModel]:
+    """Return all groups."""
+    return list(groups_db.values())
+
+
+@app.post("/groups")
+def create_group(group: GroupModel) -> GroupModel:
+    """Create a new group."""
+    if not group.id:
+        group.id = uuid4().hex
+    groups_db[group.id] = group
+    return group
+
+
+@app.put("/groups/{group_id}")
+def update_group(group_id: str, group: GroupModel) -> GroupModel:
+    """Update group information."""
+    if group_id not in groups_db:
+        raise HTTPException(status_code=404, detail="Group not found")
+    group.id = group_id
+    groups_db[group_id] = group
+    for ent_id in group.entities:
+        if ent_id in entities_db:
+            entities_db[ent_id].group_id = group_id
+    return group
+
+
+@app.delete("/groups/{group_id}")
+def delete_group(group_id: str):
+    """Delete a group and clear group assignments."""
+    if group_id in groups_db:
+        del groups_db[group_id]
+    for ent in entities_db.values():
+        if ent.group_id == group_id:
+            ent.group_id = None
+    return {"status": "deleted"}
+
+
+@app.post("/groups/{group_id}/entities/{entity_id}")
+def add_entity_to_group(group_id: str, entity_id: str) -> GroupModel:
+    """Assign an entity to a group."""
+    group = groups_db.get(group_id)
+    entity = entities_db.get(entity_id)
+    if not group or not entity:
+        raise HTTPException(status_code=404, detail="Not found")
+    if entity_id not in group.entities:
+        group.entities.append(entity_id)
+    entity.group_id = group_id
+    return group

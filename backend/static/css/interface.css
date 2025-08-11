@@ -8,3 +8,7 @@
 .search-highlight { background: orange; }
 .entity-list { list-style: none; padding-left: 0; }
 .entity-list li { cursor: pointer; }
+.entity-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+.entity-table th, .entity-table td { border: 1px solid #ccc; padding: 4px; }
+.group-list { list-style: none; padding-left: 0; }
+.group-list li { border: 1px solid #ccc; padding: 4px; margin-bottom: 4px; cursor: move; }

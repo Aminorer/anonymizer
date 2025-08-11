@@ -25,14 +25,35 @@
           <button @click="activeTab='rules'">Règles</button>
         </div>
         <div v-if="activeTab==='entities'">
-          <ul class="entity-list">
-            <li v-for="ent in entities" :key="ent.start" @click="highlightEntity(ent.type)">
-              {{ ent.type }} : {{ ent.value }}
-            </li>
-          </ul>
+          <div class="entity-actions">
+            <button @click="addEntity">Ajouter</button>
+            <button @click="deleteSelected">Supprimer sélection</button>
+          </div>
+          <table class="entity-table">
+            <thead>
+              <tr><th></th><th>Type</th><th>Valeur</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="(ent,idx) in entityStore.items" :key="ent.id" draggable="true"
+                  @dragstart="dragStart(idx,$event)" @dragover.prevent @drop="drop(idx)">
+                <td><input type="checkbox" v-model="selected" :value="ent.id" /></td>
+                <td><input v-model="ent.type" @change="updateEntity(ent)" /></td>
+                <td><input v-model="ent.value" @change="updateEntity(ent)" /></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
         <div v-if="activeTab==='groups'">
-          <p>Groupes (placeholder)</p>
+          <div class="group-actions">
+            <input v-model="newGroupName" placeholder="Nom du groupe" />
+            <button @click="addGroup">Ajouter</button>
+          </div>
+          <ul class="group-list">
+            <li v-for="grp in groupStore.items" :key="grp.id" @dragover.prevent @drop="assignToGroup(grp.id,$event)">
+              {{ grp.name }} ({{ grp.entities.length }})
+              <button @click="deleteGroup(grp.id)">x</button>
+            </li>
+          </ul>
         </div>
         <div v-if="activeTab==='search'">
           <input v-model="searchTerm" placeholder="Rechercher" />
@@ -49,6 +70,7 @@
     </div>
   </div>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/pinia@2/dist/pinia.iife.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://unpkg.com/docx-preview@0.4.1/dist/docx-preview.js"></script>
   <script src="/static/js/app.js"></script>
