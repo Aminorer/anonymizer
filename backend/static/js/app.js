@@ -80,6 +80,9 @@
       const showDetectionModal = ref(false);
       const showGroupModal = ref(false);
       const newDetection = ref({ type: '', value: '' });
+      const rules = ref({ regex_rules: [], ner: { confidence: 0.5 }, styles: {} });
+      const newRegex = ref({ pattern: '', replacement: '' });
+      const newStyle = ref({ type: '', style: '' });
 
       const entityStore = useEntityStore();
       const groupStore = useGroupStore();
@@ -96,6 +99,40 @@
         }));
         docType.value = data.result.filename.split('.').pop().toLowerCase();
         await renderDoc();
+      };
+
+      const fetchRules = async () => {
+        const res = await fetch('/rules');
+        rules.value = await res.json();
+      };
+
+      const addRegex = () => {
+        if (!newRegex.value.pattern) return;
+        rules.value.regex_rules.push({ ...newRegex.value });
+        newRegex.value = { pattern: '', replacement: '' };
+      };
+
+      const removeRegex = (idx) => {
+        rules.value.regex_rules.splice(idx, 1);
+      };
+
+      const addStyle = () => {
+        if (!newStyle.value.type) return;
+        rules.value.styles[newStyle.value.type] = newStyle.value.style;
+        newStyle.value = { type: '', style: '' };
+      };
+
+      const removeStyle = (type) => {
+        delete rules.value.styles[type];
+      };
+
+      const saveRules = async () => {
+        await fetch('/rules', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(rules.value),
+        });
+        alert('Règles sauvegardées');
       };
 
       const clearViewer = () => {
@@ -230,6 +267,7 @@
       onMounted(async () => {
         await loadStatus();
         await groupStore.fetch();
+        await fetchRules();
       });
 
       const dragStart = (idx, evt) => {
@@ -304,6 +342,14 @@
         showDetectionModal,
         showGroupModal,
         newDetection,
+        rules,
+        newRegex,
+        newStyle,
+        addRegex,
+        removeRegex,
+        addStyle,
+        removeStyle,
+        saveRules,
       };
     }
   }).use(pinia).mount('#app');

@@ -64,7 +64,33 @@
           <button @click="search">Go</button>
         </div>
         <div v-if="activeTab==='rules'">
-          <p>Règles (placeholder)</p>
+          <h3>Patterns Regex</h3>
+          <div v-for="(rule,idx) in rules.regex_rules" :key="idx">
+            <input v-model="rule.pattern" placeholder="Pattern" />
+            <input v-model="rule.replacement" placeholder="Remplacement" />
+            <button @click="removeRegex(idx)">x</button>
+          </div>
+          <div>
+            <input v-model="newRegex.pattern" placeholder="Pattern" />
+            <input v-model="newRegex.replacement" placeholder="Remplacement" />
+            <button @click="addRegex">Ajouter</button>
+          </div>
+          <h3>Paramètres NER</h3>
+          <div>
+            <input v-model="rules.ner.model" placeholder="Modèle" />
+            <input v-model.number="rules.ner.confidence" placeholder="Confiance" type="number" step="0.01" />
+          </div>
+          <h3>Styles de remplacement</h3>
+          <div v-for="(style,type) in rules.styles" :key="type">
+            <input v-model="rules.styles[type]" :placeholder="type" />
+            <button @click="removeStyle(type)">x</button>
+          </div>
+          <div>
+            <input v-model="newStyle.type" placeholder="Type" />
+            <input v-model="newStyle.style" placeholder="Style" />
+            <button @click="addStyle">Ajouter</button>
+          </div>
+          <button @click="saveRules">Enregistrer</button>
         </div>
       </div>
     </div>
