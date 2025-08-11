@@ -125,7 +125,7 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
 
         jobs[job_id]["progress"] = 10
         if extension == "docx":
-            anonymized_data, regex_entities, positions, text = regex_anonymizer.anonymize_docx(contents)
+            _anonymized, regex_entities, mapping, text = regex_anonymizer.anonymize_docx(contents)
             jobs[job_id]["progress"] = 60
             if mode == "ai":
                 ai_entities = ai_anonymizer.detect(text, confidence)
@@ -135,10 +135,6 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
             jobs[job_id]["progress"] = 90
             output_dir = Path("backend/static/uploads")
             output_dir.mkdir(parents=True, exist_ok=True)
-            output_filename = f"{uuid4().hex}_{filename}"
-            output_path = output_dir / output_filename
-            with open(output_path, "wb") as f:
-                f.write(anonymized_data)
             original_filename = f"{uuid4().hex}_original_{filename}"
             original_path = output_dir / original_filename
             with open(original_path, "wb") as f:
@@ -146,8 +142,7 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
             result = {
                 "filename": filename,
                 "entities": [e.__dict__ for e in entities],
-                "positions": positions,
-                "download_url": f"/static/uploads/{output_filename}",
+                "mapping": mapping,
                 "original_url": f"/static/uploads/{original_filename}",
             }
         else:
@@ -337,13 +332,22 @@ async def export_job(job_id: str, opts: ExportOptions):
     if not job or "result" not in job:
         raise HTTPException(status_code=404, detail="Job inconnu")
     result = job["result"]
-    src_path = Path("backend") / result["download_url"].lstrip("/")
+    src_path = Path("backend") / result["original_url"].lstrip("/")
     if not src_path.exists():
         raise HTTPException(status_code=404, detail="Document non trouvé")
     data = src_path.read_bytes()
-    entities = [Entity(**e) for e in result.get("entities", [])]
+    mapping = result.get("mapping", [])
+    stored = list(entities_db.get(job_id, {}).values())
+    if stored:
+        entities = [Entity(type=e.type, value=e.value, start=e.start, end=e.end) for e in stored]
+    else:
+        entities = [Entity(**e) for e in result.get("entities", [])]
     modified, report = regex_anonymizer.export_docx(
-        data, entities=entities, watermark=opts.watermark, audit=opts.audit
+        data,
+        mapping=mapping,
+        entities=entities,
+        watermark=opts.watermark,
+        audit=opts.audit,
     )
     output_dir = Path("backend/static/exports")
     output_dir.mkdir(parents=True, exist_ok=True)
