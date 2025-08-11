@@ -1,1 +1,4 @@
 body { font-family: Arial, sans-serif; margin: 20px; }
+
+#progress-container { width: 100%; background: lightgray; height: 20px; }
+#progress-bar { width: 0; height: 100%; background: green; transition: width 0.5s; }

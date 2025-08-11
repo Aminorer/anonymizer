@@ -15,5 +15,21 @@
             <p>Panneau latéral avec onglets (placeholder)</p>
         </div>
     </div>
+    <div id="result"></div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const jobId = params.get('job_id');
+        if (jobId) {
+            fetch(`/status/${jobId}`)
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.result && data.result.download_url) {
+                        const res = document.getElementById('result');
+                        res.innerHTML = `<a href="${data.result.download_url}">Télécharger le résultat</a>`;
+                    }
+                });
+        }
+    </script>
 </body>
 </html>

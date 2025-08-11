@@ -8,7 +8,7 @@
 <body>
     <h1>Anonymiseur de documents juridiques</h1>
     <div>
-        <form action="/upload" method="post" enctype="multipart/form-data">
+        <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
             <label>Choisissez le mode :</label>
             <div>
                 <input type="radio" id="regex" name="mode" value="regex" checked>
@@ -33,6 +33,17 @@
         const output = document.getElementById('confidence-value');
         slider.addEventListener('input', () => {
             output.textContent = parseFloat(slider.value).toFixed(2);
+        });
+
+        const form = document.getElementById('upload-form');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const response = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await response.json();
+            if (data.job_id) {
+                window.location.href = `/progress?job_id=${data.job_id}`;
+            }
         });
     </script>
 </body>
