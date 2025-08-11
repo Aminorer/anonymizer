@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Anonymiseur de documents juridiques</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <h1>Anonymiseur de documents juridiques</h1>
+    <div>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <label>Choisissez le mode :</label>
+            <div>
+                <input type="radio" id="regex" name="mode" value="regex" checked>
+                <label for="regex">Analyse simple (Regex)</label>
+                <input type="radio" id="ai" name="mode" value="ai">
+                <label for="ai">Analyse IA (NER + Regex)</label>
+            </div>
+            <div>
+                <input type="file" name="file" accept=".pdf,.docx" required />
+            </div>
+            <button type="submit">Envoyer</button>
+        </form>
+        <p>Format de sortie : DOCX identique au document original</p>
+    </div>
+</body>
+</html>
