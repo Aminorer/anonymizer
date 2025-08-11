@@ -16,6 +16,32 @@ class Entity:
     end: int
 
 
+@dataclass
+class RunInfo:
+    start: int
+    end: int
+    page: int
+    section: int
+    path: Tuple
+
+    def get_run(self, doc: Document):
+        kind = self.path[0]
+        if kind == "body":
+            _, p_idx, r_idx = self.path
+            return doc.paragraphs[p_idx].runs[r_idx]
+        if kind == "table":
+            _, t_idx, row_idx, cell_idx, p_idx, r_idx = self.path
+            cell = doc.tables[t_idx].rows[row_idx].cells[cell_idx]
+            return cell.paragraphs[p_idx].runs[r_idx]
+        if kind == "header":
+            _, s_idx, p_idx, r_idx = self.path
+            return doc.sections[s_idx].header.paragraphs[p_idx].runs[r_idx]
+        if kind == "footer":
+            _, s_idx, p_idx, r_idx = self.path
+            return doc.sections[s_idx].footer.paragraphs[p_idx].runs[r_idx]
+        raise ValueError("Unknown path type")
+
+
 class RegexAnonymizer:
     """Regex based anonymizer for DOCX and PDF files.
 
@@ -54,32 +80,116 @@ class RegexAnonymizer:
 
     # ------------------------------------------------------------------
     # DOCX utilities
-    def docx_text_mapping(self, doc: Document) -> Tuple[str, List[Tuple[int, int, int, int]]]:
-        """Return full text of ``doc`` and mapping to paragraph/run indices.
-
-        The mapping is a list of tuples ``(start, end, p_idx, r_idx)`` where
-        ``start`` and ``end`` are character offsets in the plain text
-        representation and ``p_idx``/``r_idx`` refer to the corresponding
-        paragraph and run indices in the original document.
-        """
+    def docx_text_mapping(self, doc: Document) -> Tuple[str, List[RunInfo]]:
+        """Return full text of ``doc`` and mapping to runs with page/section."""
 
         parts: List[str] = []
-        mapping: List[Tuple[int, int, int, int]] = []
+        mapping: List[RunInfo] = []
         pos = 0
+        page = 0
+        section = 0
+
+        def add_run(run, path, page_val, section_val):
+            nonlocal pos
+            text = run.text
+            start = pos
+            end = start + len(text)
+            parts.append(text)
+            mapping.append(RunInfo(start, end, page_val, section_val, path))
+            pos = end
+            if run._element.xpath(".//w:br[@w:type='page']"):
+                return page_val + 1
+            return page_val
+
+        def add_sep(text):
+            nonlocal pos
+            parts.append(text)
+            pos += len(text)
+
         for p_idx, para in enumerate(doc.paragraphs):
             for r_idx, run in enumerate(para.runs):
-                text = run.text
-                start = pos
-                end = start + len(text)
-                parts.append(text)
-                mapping.append((start, end, p_idx, r_idx))
-                pos = end
+                page = add_run(run, ("body", p_idx, r_idx), page, section)
             if p_idx < len(doc.paragraphs) - 1:
-                parts.append("\n")
-                pos += 1
+                add_sep("\n")
+            if para._p.xpath("w:pPr/w:sectPr"):
+                section += 1
+        if doc.paragraphs:
+            add_sep("\n")
+
+        for t_idx, table in enumerate(doc.tables):
+            for row_idx, row in enumerate(table.rows):
+                for cell_idx, cell in enumerate(row.cells):
+                    for p_idx, para in enumerate(cell.paragraphs):
+                        for r_idx, run in enumerate(para.runs):
+                            page = add_run(
+                                run,
+                                ("table", t_idx, row_idx, cell_idx, p_idx, r_idx),
+                                page,
+                                section,
+                            )
+                        if p_idx < len(cell.paragraphs) - 1:
+                            add_sep("\n")
+                    if cell_idx < len(row.cells) - 1:
+                        add_sep("\t")
+                if row_idx < len(table.rows) - 1:
+                    add_sep("\n")
+            if t_idx < len(doc.tables) - 1:
+                add_sep("\n")
+
+        for sec_idx, sec in enumerate(doc.sections):
+            for p_idx, para in enumerate(sec.header.paragraphs):
+                for r_idx, run in enumerate(para.runs):
+                    page = add_run(run, ("header", sec_idx, p_idx, r_idx), page, sec_idx)
+                if p_idx < len(sec.header.paragraphs) - 1:
+                    add_sep("\n")
+            if sec.header.paragraphs:
+                add_sep("\n")
+
+        for sec_idx, sec in enumerate(doc.sections):
+            for p_idx, para in enumerate(sec.footer.paragraphs):
+                for r_idx, run in enumerate(para.runs):
+                    page = add_run(run, ("footer", sec_idx, p_idx, r_idx), page, sec_idx)
+                if p_idx < len(sec.footer.paragraphs) - 1:
+                    add_sep("\n")
+            if sec.footer.paragraphs:
+                add_sep("\n")
+
         return "".join(parts), mapping
 
-    def anonymize_docx(self, data: bytes) -> Tuple[bytes, List[Entity], List[Tuple[int, int, int, int]], str]:
+    def _replace_using_mapping(
+        self, doc: Document, entities: List[Entity], mapping: List[RunInfo]
+    ) -> None:
+        def _original_text(ent: Entity) -> str:
+            parts: List[str] = []
+            for m in mapping:
+                if m.end <= ent.start or m.start >= ent.end:
+                    continue
+                run = m.get_run(doc)
+                rs = max(ent.start, m.start) - m.start
+                re = min(ent.end, m.end) - m.start
+                parts.append(run.text[rs:re])
+            return "".join(parts)
+
+        for ent in entities:
+            original = _original_text(ent)
+            replacement = ent.value
+            if replacement == original:
+                replacement = f"[{ent.type}]"
+
+            first = True
+            for m in mapping:
+                if m.end <= ent.start or m.start >= ent.end:
+                    continue
+                run = m.get_run(doc)
+                rs = max(ent.start, m.start) - m.start
+                re = min(ent.end, m.end) - m.start
+                if first:
+                    run.text = run.text[:rs] + replacement + run.text[re:]
+                    first = False
+                else:
+                    run.text = run.text[:rs] + run.text[re:]
+
+    def anonymize_docx(self, data: bytes) -> Tuple[bytes, List[Entity], List[RunInfo], str]:
         """Anonymize a DOCX document while preserving structure and metadata.
 
         Returns the anonymized document bytes, detected entities, the mapping
@@ -94,25 +204,7 @@ class RegexAnonymizer:
         }
         text, mapping = self.docx_text_mapping(doc)
         entities = self.detect(text)
-
-        def replace_in_paragraphs(paragraphs):
-            for para in paragraphs:
-                for run in para.runs:
-                    for etype, pattern in self.PATTERNS.items():
-                        if pattern.search(run.text):
-                            run.text = pattern.sub(f"[{etype}]", run.text)
-
-        # Replace in body paragraphs
-        replace_in_paragraphs(doc.paragraphs)
-        # Replace in tables
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    replace_in_paragraphs(cell.paragraphs)
-        # Replace in headers and footers
-        for section in doc.sections:
-            replace_in_paragraphs(section.header.paragraphs)
-            replace_in_paragraphs(section.footer.paragraphs)
+        self._replace_using_mapping(doc, entities, mapping)
 
         # Restore metadata explicitly
         doc.core_properties.author = core_props["author"]
@@ -127,56 +219,17 @@ class RegexAnonymizer:
     def export_docx(
         self,
         data: bytes,
-        mapping: Optional[List[Tuple[int, int, int, int]]] = None,
+        mapping: Optional[List[RunInfo]] = None,
         entities: Optional[List[Entity]] = None,
         watermark: Optional[str] = None,
         audit: bool = False,
     ) -> Tuple[bytes, Optional[str]]:
-        """Apply modifications and export options to a DOCX document.
-
-        ``mapping`` should contain tuples ``(start, end, p_idx, r_idx)`` mapping
-        character positions in the extracted text to paragraph/run indices. The
-        ``entities`` list contains the potentially modified entities whose
-        ranges will be replaced in the document. If the entity ``value`` is
-        unchanged compared to the original text, it will be replaced by a
-        placeholder ``[TYPE]``.
-
-        The function returns the modified document bytes and optionally an
-        audit report if ``audit`` is True.
-        """
+        """Apply modifications and export options to a DOCX document."""
 
         doc = Document(BytesIO(data))
 
         if entities and mapping:
-            def _original_text(ent: Entity) -> str:
-                parts: List[str] = []
-                for m_start, m_end, p_idx, r_idx in mapping:
-                    if m_end <= ent.start or m_start >= ent.end:
-                        continue
-                    run = doc.paragraphs[p_idx].runs[r_idx]
-                    rs = max(ent.start, m_start) - m_start
-                    re = min(ent.end, m_end) - m_start
-                    parts.append(run.text[rs:re])
-                return "".join(parts)
-
-            for ent in entities:
-                original = _original_text(ent)
-                replacement = ent.value
-                if replacement == original:
-                    replacement = f"[{ent.type}]"
-
-                first = True
-                for m_start, m_end, p_idx, r_idx in mapping:
-                    if m_end <= ent.start or m_start >= ent.end:
-                        continue
-                    run = doc.paragraphs[p_idx].runs[r_idx]
-                    rs = max(ent.start, m_start) - m_start
-                    re = min(ent.end, m_end) - m_start
-                    if first:
-                        run.text = run.text[:rs] + replacement + run.text[re:]
-                        first = False
-                    else:
-                        run.text = run.text[:rs] + run.text[re:]
+            self._replace_using_mapping(doc, entities, mapping)
 
         if watermark:
             for section in doc.sections:
