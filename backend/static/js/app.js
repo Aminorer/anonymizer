@@ -1,5 +1,69 @@
 (function () {
-  const { createApp, ref, onMounted } = Vue;
+  const { createApp, ref, onMounted, computed } = Vue;
+  const { createPinia, defineStore } = Pinia;
+
+  // ----------------------- Stores -----------------------------------
+  const useEntityStore = defineStore('entities', {
+    state: () => ({ items: [] }),
+    actions: {
+      async fetch() {
+        const res = await fetch('/entities');
+        this.items = await res.json();
+      },
+      async add(entity) {
+        const res = await fetch('/entities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(entity),
+        });
+        this.items.push(await res.json());
+      },
+      async update(entity) {
+        await fetch(`/entities/${entity.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(entity),
+        });
+      },
+      async remove(id) {
+        await fetch(`/entities/${id}`, { method: 'DELETE' });
+        this.items = this.items.filter((e) => e.id !== id);
+      },
+      reorder(from, to) {
+        this.items.splice(to, 0, this.items.splice(from, 1)[0]);
+      },
+    },
+  });
+
+  const useGroupStore = defineStore('groups', {
+    state: () => ({ items: [] }),
+    actions: {
+      async fetch() {
+        const res = await fetch('/groups');
+        this.items = await res.json();
+      },
+      async add(group) {
+        const res = await fetch('/groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(group),
+        });
+        this.items.push(await res.json());
+      },
+      async remove(id) {
+        await fetch(`/groups/${id}`, { method: 'DELETE' });
+        this.items = this.items.filter((g) => g.id !== id);
+      },
+      async assign(entityId, groupId) {
+        const res = await fetch(`/groups/${groupId}/entities/${entityId}`, { method: 'POST' });
+        const updated = await res.json();
+        const idx = this.items.findIndex((g) => g.id === updated.id);
+        if (idx !== -1) this.items[idx] = updated;
+      },
+    },
+  });
+
+  const pinia = createPinia();
 
   createApp({
     setup() {
@@ -8,16 +72,24 @@
       const view = ref('anonymized');
       const docType = ref('');
       const zoom = ref(1);
-      const entities = ref([]);
       const activeTab = ref('entities');
       const searchTerm = ref('');
+      const selected = ref([]);
+      const dragIndex = ref(null);
+
+      const entityStore = useEntityStore();
+      const groupStore = useGroupStore();
+      const entities = computed(() => entityStore.items);
 
       const loadStatus = async () => {
         if (!jobId) return;
         const res = await fetch(`/status/${jobId}`);
         const data = await res.json();
         status.value = data.result;
-        entities.value = data.result.entities || [];
+        entityStore.items = (data.result.entities || []).map((e) => ({
+          id: crypto.randomUUID(),
+          ...e,
+        }));
         docType.value = data.result.filename.split('.').pop().toLowerCase();
         await renderDoc();
       };
@@ -141,7 +213,46 @@
         });
       };
 
-      onMounted(loadStatus);
+(function init() {
+      onMounted(async () => {
+        await loadStatus();
+        await groupStore.fetch();
+      });
+
+      const dragStart = (idx, evt) => {
+        dragIndex.value = idx;
+        evt.dataTransfer.setData('text/plain', entityStore.items[idx].id);
+      };
+      const drop = (idx) => {
+        if (dragIndex.value === null) return;
+        entityStore.reorder(dragIndex.value, idx);
+        dragIndex.value = null;
+      };
+
+      const addEntity = async () => {
+        await entityStore.add({ type: '', value: '', start: 0, end: 0 });
+      };
+      const updateEntity = async (ent) => {
+        await entityStore.update(ent);
+      };
+      const deleteSelected = async () => {
+        for (const id of selected.value) await entityStore.remove(id);
+        selected.value = [];
+      };
+
+      const newGroupName = ref('');
+      const addGroup = async () => {
+        if (!newGroupName.value) return;
+        await groupStore.add({ name: newGroupName.value, entities: [] });
+        newGroupName.value = '';
+      };
+      const deleteGroup = async (id) => {
+        await groupStore.remove(id);
+      };
+      const assignToGroup = async (groupId, evt) => {
+        const entId = evt.dataTransfer.getData('text/plain');
+        if (entId) await groupStore.assign(entId, groupId);
+      };
 
       return {
         view,
@@ -154,7 +265,19 @@
         searchTerm,
         search,
         status,
+        entityStore,
+        groupStore,
+        selected,
+        dragStart,
+        drop,
+        addEntity,
+        updateEntity,
+        deleteSelected,
+        newGroupName,
+        addGroup,
+        deleteGroup,
+        assignToGroup,
       };
-    },
-  }).mount('#app');
+    })(),
+  }).use(pinia).mount('#app');
 })();
