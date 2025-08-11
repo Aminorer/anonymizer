@@ -9,6 +9,7 @@ from difflib import get_close_matches
 from .anonymizer import RegexAnonymizer, Entity
 from .ai_anonymizer import AIAnonymizer
 import os
+import json
 
 app = FastAPI(title="Anonymiseur de documents juridiques")
 regex_anonymizer = RegexAnonymizer()
@@ -42,6 +43,46 @@ class GroupModel(BaseModel):
 
 entities_db: dict[str, EntityModel] = {}
 groups_db: dict[str, GroupModel] = {}
+
+# configuration model for rules
+class RegexRule(BaseModel):
+    pattern: str
+    replacement: str
+
+
+class RulesConfig(BaseModel):
+    regex_rules: list[RegexRule] = []
+    ner: dict = {}
+    styles: dict[str, str] = {}
+
+
+RULES_FILE = Path("backend/rules.json")
+
+
+def load_rules() -> RulesConfig:
+    if RULES_FILE.exists():
+        data = json.loads(RULES_FILE.read_text(encoding="utf-8"))
+        return RulesConfig.parse_obj(data)
+    return RulesConfig()
+
+
+def save_rules(cfg: RulesConfig) -> None:
+    RULES_FILE.write_text(
+        json.dumps(cfg.dict(), indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+@app.get("/rules", response_model=RulesConfig)
+def get_rules() -> RulesConfig:
+    """Return current anonymization rules."""
+    return load_rules()
+
+
+@app.put("/rules", response_model=RulesConfig)
+def update_rules(cfg: RulesConfig) -> RulesConfig:
+    """Persist updated anonymization rules."""
+    save_rules(cfg)
+    return cfg
 
 
 def merge_entities(a: list[Entity], b: list[Entity]) -> list[Entity]:
