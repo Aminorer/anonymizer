@@ -41,8 +41,9 @@ class GroupModel(BaseModel):
     entities: list[str] = []
 
 
-entities_db: dict[str, EntityModel] = {}
-groups_db: dict[str, GroupModel] = {}
+# in-memory stores keyed by job then by entity/group id
+entities_db: dict[str, dict[str, EntityModel]] = {}
+groups_db: dict[str, dict[str, GroupModel]] = {}
 
 
 class ExportOptions(BaseModel):
@@ -218,86 +219,97 @@ def get_status(job_id: str):
 # REST endpoints for entities and groups
 
 
-@app.get("/entities")
-def list_entities() -> list[EntityModel]:
-    """Return all stored entities."""
-    return list(entities_db.values())
+@app.get("/entities/{job_id}")
+def list_entities(job_id: str) -> list[EntityModel]:
+    """Return all stored entities for a job."""
+    return list(entities_db.get(job_id, {}).values())
 
 
-@app.post("/entities")
-def create_entity(entity: EntityModel) -> EntityModel:
-    """Create a new entity."""
+@app.post("/entities/{job_id}")
+def create_entity(job_id: str, entity: EntityModel) -> EntityModel:
+    """Create a new entity for a job."""
     if not entity.id:
         entity.id = uuid4().hex
-    entities_db[entity.id] = entity
+    job_entities = entities_db.setdefault(job_id, {})
+    job_entities[entity.id] = entity
     return entity
 
 
-@app.put("/entities/{entity_id}")
-def update_entity(entity_id: str, entity: EntityModel) -> EntityModel:
-    """Update an existing entity."""
-    if entity_id not in entities_db:
+@app.put("/entities/{job_id}/{entity_id}")
+def update_entity(job_id: str, entity_id: str, entity: EntityModel) -> EntityModel:
+    """Update an existing entity for a job."""
+    job_entities = entities_db.setdefault(job_id, {})
+    if entity_id not in job_entities:
         raise HTTPException(status_code=404, detail="Entity not found")
     entity.id = entity_id
-    entities_db[entity_id] = entity
+    job_entities[entity_id] = entity
     return entity
 
 
-@app.delete("/entities/{entity_id}")
-def delete_entity(entity_id: str):
-    """Remove an entity and detach it from groups."""
-    if entity_id in entities_db:
-        del entities_db[entity_id]
-    for group in groups_db.values():
+@app.delete("/entities/{job_id}/{entity_id}")
+def delete_entity(job_id: str, entity_id: str):
+    """Remove an entity for a job and detach it from groups."""
+    job_entities = entities_db.get(job_id, {})
+    if entity_id in job_entities:
+        del job_entities[entity_id]
+    job_groups = groups_db.get(job_id, {})
+    for group in job_groups.values():
         if entity_id in group.entities:
             group.entities.remove(entity_id)
     return {"status": "deleted"}
 
 
-@app.get("/groups")
-def list_groups() -> list[GroupModel]:
-    """Return all groups."""
-    return list(groups_db.values())
+@app.get("/groups/{job_id}")
+def list_groups(job_id: str) -> list[GroupModel]:
+    """Return all groups for a job."""
+    return list(groups_db.get(job_id, {}).values())
 
 
-@app.post("/groups")
-def create_group(group: GroupModel) -> GroupModel:
-    """Create a new group."""
+@app.post("/groups/{job_id}")
+def create_group(job_id: str, group: GroupModel) -> GroupModel:
+    """Create a new group for a job."""
     if not group.id:
         group.id = uuid4().hex
-    groups_db[group.id] = group
+    job_groups = groups_db.setdefault(job_id, {})
+    job_groups[group.id] = group
     return group
 
 
-@app.put("/groups/{group_id}")
-def update_group(group_id: str, group: GroupModel) -> GroupModel:
-    """Update group information."""
-    if group_id not in groups_db:
+@app.put("/groups/{job_id}/{group_id}")
+def update_group(job_id: str, group_id: str, group: GroupModel) -> GroupModel:
+    """Update group information for a job."""
+    job_groups = groups_db.setdefault(job_id, {})
+    if group_id not in job_groups:
         raise HTTPException(status_code=404, detail="Group not found")
     group.id = group_id
-    groups_db[group_id] = group
+    job_groups[group_id] = group
+    job_entities = entities_db.setdefault(job_id, {})
     for ent_id in group.entities:
-        if ent_id in entities_db:
-            entities_db[ent_id].group_id = group_id
+        if ent_id in job_entities:
+            job_entities[ent_id].group_id = group_id
     return group
 
 
-@app.delete("/groups/{group_id}")
-def delete_group(group_id: str):
-    """Delete a group and clear group assignments."""
-    if group_id in groups_db:
-        del groups_db[group_id]
-    for ent in entities_db.values():
+@app.delete("/groups/{job_id}/{group_id}")
+def delete_group(job_id: str, group_id: str):
+    """Delete a group for a job and clear group assignments."""
+    job_groups = groups_db.get(job_id, {})
+    if group_id in job_groups:
+        del job_groups[group_id]
+    job_entities = entities_db.get(job_id, {})
+    for ent in job_entities.values():
         if ent.group_id == group_id:
             ent.group_id = None
     return {"status": "deleted"}
 
 
-@app.post("/groups/{group_id}/entities/{entity_id}")
-def add_entity_to_group(group_id: str, entity_id: str) -> GroupModel:
-    """Assign an entity to a group."""
-    group = groups_db.get(group_id)
-    entity = entities_db.get(entity_id)
+@app.post("/groups/{job_id}/{group_id}/entities/{entity_id}")
+def add_entity_to_group(job_id: str, group_id: str, entity_id: str) -> GroupModel:
+    """Assign an entity to a group for a job."""
+    job_groups = groups_db.get(job_id, {})
+    job_entities = entities_db.get(job_id, {})
+    group = job_groups.get(group_id)
+    entity = job_entities.get(entity_id)
     if not group or not entity:
         raise HTTPException(status_code=404, detail="Not found")
     if entity_id not in group.entities:

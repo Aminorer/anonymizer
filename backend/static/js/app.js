@@ -1,17 +1,18 @@
 (function () {
   const { createApp, ref, onMounted, computed } = Vue;
   const { createPinia, defineStore } = Pinia;
+  const jobId = new URLSearchParams(window.location.search).get('job_id');
 
   // ----------------------- Stores -----------------------------------
   const useEntityStore = defineStore('entities', {
     state: () => ({ items: [] }),
     actions: {
       async fetch() {
-        const res = await fetch('/entities');
+        const res = await fetch(`/entities/${jobId}`);
         this.items = await res.json();
       },
       async add(entity) {
-        const res = await fetch('/entities', {
+        const res = await fetch(`/entities/${jobId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(entity),
@@ -19,14 +20,14 @@
         this.items.push(await res.json());
       },
       async update(entity) {
-        await fetch(`/entities/${entity.id}`, {
+        await fetch(`/entities/${jobId}/${entity.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(entity),
         });
       },
       async remove(id) {
-        await fetch(`/entities/${id}`, { method: 'DELETE' });
+        await fetch(`/entities/${jobId}/${id}`, { method: 'DELETE' });
         this.items = this.items.filter((e) => e.id !== id);
       },
       reorder(from, to) {
@@ -39,11 +40,11 @@
     state: () => ({ items: [] }),
     actions: {
       async fetch() {
-        const res = await fetch('/groups');
+        const res = await fetch(`/groups/${jobId}`);
         this.items = await res.json();
       },
       async add(group) {
-        const res = await fetch('/groups', {
+        const res = await fetch(`/groups/${jobId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(group),
@@ -51,11 +52,11 @@
         this.items.push(await res.json());
       },
       async remove(id) {
-        await fetch(`/groups/${id}`, { method: 'DELETE' });
+        await fetch(`/groups/${jobId}/${id}`, { method: 'DELETE' });
         this.items = this.items.filter((g) => g.id !== id);
       },
       async assign(entityId, groupId) {
-        const res = await fetch(`/groups/${groupId}/entities/${entityId}`, { method: 'POST' });
+        const res = await fetch(`/groups/${jobId}/${groupId}/entities/${entityId}`, { method: 'POST' });
         const updated = await res.json();
         const idx = this.items.findIndex((g) => g.id === updated.id);
         if (idx !== -1) this.items[idx] = updated;
@@ -67,7 +68,6 @@
 
   createApp({
     setup() {
-      const jobId = new URLSearchParams(window.location.search).get('job_id');
       const status = ref(null);
       const view = ref('anonymized');
       const docType = ref('');
