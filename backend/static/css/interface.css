@@ -1,0 +1,10 @@
+.viewer { border: 1px solid #ccc; height: 600px; overflow: auto; }
+.controls button { margin-right: 5px; }
+.container { display: flex; }
+.side-panel { width: 30%; border-left: 1px solid #ccc; padding-left: 10px; }
+.tabs { display: flex; margin-bottom: 10px; }
+.tabs button { flex: 1; padding: 5px; }
+.highlight { background: yellow; }
+.search-highlight { background: orange; }
+.entity-list { list-style: none; padding-left: 0; }
+.entity-list li { cursor: pointer; }

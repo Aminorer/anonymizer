@@ -71,11 +71,16 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
             output_path = output_dir / output_filename
             with open(output_path, "wb") as f:
                 f.write(anonymized_data)
+            original_filename = f"{uuid4().hex}_original_{filename}"
+            original_path = output_dir / original_filename
+            with open(original_path, "wb") as f:
+                f.write(contents)
             result = {
                 "filename": filename,
                 "entities": [e.__dict__ for e in entities],
                 "positions": positions,
                 "download_url": f"/static/uploads/{output_filename}",
+                "original_url": f"/static/uploads/{original_filename}",
             }
         else:
             anonymized_text, regex_entities, text = regex_anonymizer.anonymize_pdf(contents)
@@ -92,11 +97,16 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
             output_path = output_dir / output_filename
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(anonymized_text)
+            original_filename = f"{uuid4().hex}_{filename}"
+            original_path = output_dir / original_filename
+            with open(original_path, "wb") as f:
+                f.write(contents)
             result = {
                 "filename": filename,
                 "text": anonymized_text,
                 "entities": [e.__dict__ for e in entities],
                 "download_url": f"/static/uploads/{output_filename}",
+                "original_url": f"/static/uploads/{original_filename}",
             }
         jobs[job_id].update({"status": "completed", "progress": 100, "result": result})
     except Exception as exc:
