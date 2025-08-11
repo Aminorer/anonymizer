@@ -112,8 +112,18 @@
       </div>
     </div>
     <div id="download" v-if="status">
-      <a :href="status.download_url">Télécharger anonymisé</a> |
+      <button @click="showExportModal=true">Exporter anonymisé</button> |
       <a :href="status.original_url">Télécharger original</a>
+    </div>
+    <div v-if="showExportModal" class="modal">
+      <div class="modal-content">
+        <h3>Paramètres d'export</h3>
+        <label>Filigrane</label>
+        <input v-model="watermark" placeholder="Texte du filigrane" />
+        <label><input type="checkbox" v-model="wantAudit" /> Rapport d'audit</label>
+        <button @click="exportDoc">Exporter</button>
+        <button @click="showExportModal=false">Annuler</button>
+      </div>
     </div>
   </div>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>

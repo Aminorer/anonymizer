@@ -79,6 +79,9 @@
       const dragIndex = ref(null);
       const showDetectionModal = ref(false);
       const showGroupModal = ref(false);
+      const showExportModal = ref(false);
+      const watermark = ref('');
+      const wantAudit = ref(false);
       const newDetection = ref({ type: '', value: '' });
       const rules = ref({ regex_rules: [], ner: { confidence: 0.5 }, styles: {} });
       const newRegex = ref({ pattern: '', replacement: '' });
@@ -315,6 +318,18 @@
         if (entId) await groupStore.assign(entId, groupId);
       };
 
+      const exportDoc = async () => {
+        const res = await fetch(`/export/${jobId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ watermark: watermark.value, audit: wantAudit.value })
+        });
+        const data = await res.json();
+        if (data.download_url) window.location.href = data.download_url;
+        if (data.audit_url) window.open(data.audit_url, '_blank');
+        showExportModal.value = false;
+      };
+
       return {
         view,
         changeView,
@@ -341,6 +356,10 @@
         assignToGroup,
         showDetectionModal,
         showGroupModal,
+        showExportModal,
+        watermark,
+        wantAudit,
+        exportDoc,
         newDetection,
         rules,
         newRegex,
