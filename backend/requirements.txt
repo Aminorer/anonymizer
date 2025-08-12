@@ -9,3 +9,5 @@ pytest
 pillow
 httpx
 python-multipart
+torch
+PyMuPDF
