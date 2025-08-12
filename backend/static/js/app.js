@@ -69,6 +69,9 @@
   createApp({
     setup() {
       const status = ref(null);
+      const processingMode = ref('');
+      const entitiesDetected = ref(0);
+      const eta = ref(null);
       const view = ref('anonymized');
       const docType = ref('');
       const zoom = ref(1);
@@ -104,6 +107,9 @@
         const res = await fetch(`/status/${jobId}`);
         const data = await res.json();
         status.value = data.result;
+        processingMode.value = data.mode;
+        entitiesDetected.value = data.entities_detected;
+        eta.value = data.eta;
         entityStore.items = (data.result.entities || []).map((e) => ({
           id: crypto.randomUUID(),
           ...e,
@@ -415,6 +421,9 @@
         searchType,
         search,
         status,
+        processingMode,
+        entitiesDetected,
+        eta,
         entityStore,
         groupStore,
         selected,

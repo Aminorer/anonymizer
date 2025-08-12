@@ -10,6 +10,7 @@ from .anonymizer import RegexAnonymizer, Entity
 from .ai_anonymizer import AIAnonymizer
 import os
 import json
+import time
 
 app = FastAPI(title="Anonymiseur de documents juridiques")
 regex_anonymizer = RegexAnonymizer()
@@ -108,31 +109,44 @@ def read_index(request: Request):
 
 def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, filename: str):
     """Internal worker updating job status while processing the file."""
+
+    def _calc_eta(start: float, progress: int) -> float | None:
+        """Simple estimation of remaining seconds based on progress."""
+        if progress <= 0:
+            return None
+        elapsed = time.time() - start
+        return elapsed * (100 - progress) / progress
+
+    start_time = time.time()
+    jobs[job_id].update({"mode": mode, "entities_detected": 0, "eta": None})
     try:
         extension = filename.split(".")[-1].lower()
         if extension not in ALLOWED_EXTENSIONS:
-            jobs[job_id] = {"status": "error", "message": "Format non pris en charge"}
+            jobs[job_id] = {"status": "error", "message": "Format non pris en charge", "mode": mode, "entities_detected": 0, "eta": 0}
             return
 
         size_mb = len(contents) / (1024 * 1024)
         if size_mb > MAX_FILE_SIZE_MB:
-            jobs[job_id] = {"status": "error", "message": "Fichier trop volumineux"}
+            jobs[job_id] = {"status": "error", "message": "Fichier trop volumineux", "mode": mode, "entities_detected": 0, "eta": 0}
             return
 
         if mode not in {"regex", "ai"}:
-            jobs[job_id] = {"status": "error", "message": "Mode inconnu"}
+            jobs[job_id] = {"status": "error", "message": "Mode inconnu", "mode": mode, "entities_detected": 0, "eta": 0}
             return
 
         jobs[job_id]["progress"] = 10
+        jobs[job_id]["eta"] = _calc_eta(start_time, 10)
         if extension == "docx":
             _anonymized, regex_entities, mapping, text = regex_anonymizer.anonymize_docx(contents)
             jobs[job_id]["progress"] = 60
+            jobs[job_id]["eta"] = _calc_eta(start_time, 60)
             if mode == "ai":
                 ai_entities = ai_anonymizer.detect(text, confidence)
                 entities = merge_entities(regex_entities, ai_entities)
             else:
                 entities = regex_entities
             jobs[job_id]["progress"] = 90
+            jobs[job_id]["eta"] = _calc_eta(start_time, 90)
             output_dir = Path("backend/static/uploads")
             output_dir.mkdir(parents=True, exist_ok=True)
             original_filename = f"{uuid4().hex}_original_{filename}"
@@ -150,12 +164,14 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
                 regex_anonymizer.anonymize_pdf(contents)
             )
             jobs[job_id]["progress"] = 60
+            jobs[job_id]["eta"] = _calc_eta(start_time, 60)
             if mode == "ai":
                 ai_entities = ai_anonymizer.detect(text, confidence)
                 entities = merge_entities(regex_entities, ai_entities)
             else:
                 entities = regex_entities
             jobs[job_id]["progress"] = 90
+            jobs[job_id]["eta"] = _calc_eta(start_time, 90)
             output_dir = Path("backend/static/uploads")
             output_dir.mkdir(parents=True, exist_ok=True)
             original_filename = f"{uuid4().hex}_original_{Path(filename).stem}.docx"
@@ -169,9 +185,10 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
                 "original_url": f"/static/uploads/{original_filename}",
                 "text": text,
             }
-        jobs[job_id].update({"status": "completed", "progress": 100, "result": result})
+        jobs[job_id]["entities_detected"] = len(entities)
+        jobs[job_id].update({"status": "completed", "progress": 100, "result": result, "eta": 0})
     except Exception as exc:
-        jobs[job_id] = {"status": "error", "message": str(exc)}
+        jobs[job_id] = {"status": "error", "message": str(exc), "mode": mode, "entities_detected": 0, "eta": 0}
 
 
 @app.post("/upload")
@@ -184,7 +201,13 @@ async def upload_file(
     """Handle file upload asynchronously and return a job identifier."""
     contents = await file.read()
     job_id = uuid4().hex
-    jobs[job_id] = {"status": "processing", "progress": 0}
+    jobs[job_id] = {
+        "status": "processing",
+        "progress": 0,
+        "mode": mode,
+        "entities_detected": 0,
+        "eta": None,
+    }
     background_tasks.add_task(_process_file, job_id, mode, confidence, contents, file.filename)
     return {"job_id": job_id}
 

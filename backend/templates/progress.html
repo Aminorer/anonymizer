@@ -11,16 +11,25 @@
         <div id="progress-bar"></div>
     </div>
     <p>Préservation du format original en cours...</p>
+    <p>Mode : <span id="mode"></span></p>
+    <p>Entités détectées : <span id="entities"></span></p>
+    <p>Temps estimé restant : <span id="eta"></span></p>
 
     <script>
         const params = new URLSearchParams(window.location.search);
         const jobId = params.get('job_id');
         const bar = document.getElementById('progress-bar');
+        const modeEl = document.getElementById('mode');
+        const entitiesEl = document.getElementById('entities');
+        const etaEl = document.getElementById('eta');
 
         async function checkStatus() {
             const res = await fetch(`/status/${jobId}`);
             const data = await res.json();
             bar.style.width = `${data.progress}%`;
+            modeEl.textContent = data.mode || '';
+            entitiesEl.textContent = data.entities_detected ?? 0;
+            etaEl.textContent = data.eta != null ? `${Math.ceil(data.eta)}s` : '';
             if (data.status === 'completed') {
                 window.location.href = `/interface?job_id=${jobId}`;
             }
