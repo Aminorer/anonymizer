@@ -1,75 +1,206 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('file-input');
-    const form = document.getElementById('upload-form');
-    const errorMessage = document.getElementById('error-message');
-    const slider = document.getElementById('confidence');
-    const output = document.getElementById('confidence-value');
+/**
+ * Script amélioré pour la gestion de l'upload de fichiers
+ * Gère le drag & drop, la validation et les retours utilisateur
+ */
 
-    slider.addEventListener('input', () => {
-        output.textContent = parseFloat(slider.value).toFixed(2);
-    });
+(function() {
+    'use strict';
 
-    dropzone.addEventListener('click', () => fileInput.click());
+    // Configuration
+    const CONFIG = {
+        MAX_FILE_SIZE: 25 * 1024 * 1024, // 25 MB
+        ALLOWED_EXTENSIONS: ['pdf', 'docx'],
+        UPLOAD_ENDPOINT: '/upload',
+        PROGRESS_PAGE: '/progress'
+    };
 
-    dropzone.addEventListener('dragenter', (e) => {
-        e.preventDefault();
-        dropzone.classList.add('hover');
-    });
+    // Utilitaires
+    const utils = {
+        formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
 
-    dropzone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-    });
+        getFileExtension(filename) {
+            return filename.split('.').pop().toLowerCase();
+        },
 
-    dropzone.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        dropzone.classList.remove('hover');
-    });
+        validateFile(file) {
+            const errors = [];
 
-    dropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropzone.classList.remove('hover');
-        const file = e.dataTransfer.files[0];
-        if (file) {
-            handleFile(file);
+            if (!file) {
+                errors.push('Aucun fichier sélectionné');
+                return errors;
+            }
+
+            if (file.size === 0) {
+                errors.push('Le fichier est vide');
+            }
+
+            if (file.size > CONFIG.MAX_FILE_SIZE) {
+                errors.push(`Le fichier dépasse la taille maximale de ${utils.formatFileSize(CONFIG.MAX_FILE_SIZE)}`);
+            }
+
+            const extension = utils.getFileExtension(file.name);
+            if (!CONFIG.ALLOWED_EXTENSIONS.includes(extension)) {
+                errors.push(`Format non supporté. Utilisez : ${CONFIG.ALLOWED_EXTENSIONS.join(', ').toUpperCase()}`);
+            }
+
+            return errors;
+        },
+
+        debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
         }
-    });
+    };
 
-    fileInput.addEventListener('change', () => {
-        const file = fileInput.files[0];
-        if (file) {
-            handleFile(file);
+    // Gestionnaire d'upload
+    class FileUploadManager {
+        constructor() {
+            this.currentFile = null;
+            this.isUploading = false;
+            this.elements = {};
+            
+            this.init();
         }
-    });
 
-    function handleFile(file) {
-        if (file.size > 25 * 1024 * 1024) {
-            fileInput.value = '';
-            errorMessage.textContent = 'Le fichier dépasse la taille maximale de 25 Mo.';
-            return;
+        init() {
+            this.bindElements();
+            this.attachEventListeners();
+            this.updateUI();
         }
-        errorMessage.textContent = '';
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-        fileInput.files = dataTransfer.files;
-    }
 
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const file = fileInput.files[0];
-        if (!file) {
-            errorMessage.textContent = 'Veuillez sélectionner un fichier.';
-            return;
+        bindElements() {
+            this.elements = {
+                form: document.getElementById('upload-form'),
+                fileInput: document.getElementById('file-input'),
+                dropzone: document.getElementById('dropzone'),
+                fileInfo: document.getElementById('file-info'),
+                fileName: document.getElementById('file-name'),
+                fileSize: document.getElementById('file-size'),
+                removeBtn: document.getElementById('remove-file'),
+                errorMessage: document.getElementById('error-message'),
+                errorText: document.getElementById('error-text'),
+                submitBtn: document.getElementById('submit-btn'),
+                modeInputs: document.querySelectorAll('input[name="mode"]'),
+                confidenceSlider: document.getElementById('confidence'),
+                confidenceValue: document.getElementById('confidence-value'),
+                confidenceSection: document.getElementById('confidence-section')
+            };
+
+            // Vérifier que tous les éléments sont présents
+            Object.entries(this.elements).forEach(([key, element]) => {
+                if (!element && !['fileInfo', 'fileName', 'fileSize', 'removeBtn', 'errorMessage', 'errorText'].includes(key)) {
+                    console.warn(`Element ${key} not found`);
+                }
+            });
         }
-        if (file.size > 25 * 1024 * 1024) {
-            errorMessage.textContent = 'Le fichier dépasse la taille maximale de 25 Mo.';
-            return;
+
+        attachEventListeners() {
+            // Mode selection
+            this.elements.modeInputs.forEach(input => {
+                input.addEventListener('change', this.handleModeChange.bind(this));
+            });
+
+            // Confidence slider
+            if (this.elements.confidenceSlider) {
+                this.elements.confidenceSlider.addEventListener('input', this.handleConfidenceChange.bind(this));
+            }
+
+            // File input
+            if (this.elements.fileInput) {
+                this.elements.fileInput.addEventListener('change', this.handleFileSelect.bind(this));
+            }  
+            // Dropzone
+            if (this.elements.dropzone) {
+                this.elements.dropzone.addEventListener('dragover', this.handleDragOver.bind(this));
+                this.elements.dropzone.addEventListener('drop', this.handleDrop.bind(this));
+            }
+            // Remove button
+            if (this.elements.removeBtn) {
+                this.elements.removeBtn.addEventListener('click', this.handleRemoveFile.bind(this));
+            }
+            // Form submission
+            if (this.elements.form) {
+                this.elements.form.addEventListener('submit', this.handleSubmit.bind(this));
+            }   
+            // Debounced resize handler
+            window.addEventListener('resize', utils.debounce(this.updateUI.bind(this), 100));
+            // Initial UI update
+            this.updateUI();
         }
-        const formData = new FormData(form);
-        const response = await fetch('/upload', { method: 'POST', body: formData });
-        const data = await response.json();
-        if (data.job_id) {
-            window.location.href = `/progress?job_id=${data.job_id}`;
+        handleModeChange(event) {
+            const mode = event.target.value;
+            if (mode === 'anonymize') {
+                this.elements.confidenceSection.style.display = 'block';
+            } else {
+                this.elements.confidenceSection.style.display = 'none';
+            }
         }
-    });
-});
+        handleConfidenceChange(event) {
+            const value = event.target.value;
+            this.elements.confidenceValue.textContent = value;
+        }
+        handleFileSelect(event) {
+            const file = event.target.files[0];
+            this.setCurrentFile(file);
+        }
+        handleDragOver(event) {
+            event.preventDefault();
+            this.elements.dropzone.classList.add('dragover');
+        }
+        handleDrop(event) {
+            event.preventDefault();
+            this.elements.dropzone.classList.remove('dragover');
+            const file = event.dataTransfer.files[0];
+            this.setCurrentFile(file);
+        }
+        handleRemoveFile() {
+            this.setCurrentFile(null);
+        }
+        setCurrentFile(file) {
+            this.currentFile = file;
+            this.updateUI();
+        }
+        updateUI() {
+            if (this.currentFile) {
+                const errors = utils.validateFile(this.currentFile);
+                if (errors.length > 0) {
+                    this.showError(errors.join('<br>'));
+                    this.elements.fileInfo.style.display = 'none';
+                } else {
+                    this.showFileInfo();
+                }
+            } else {
+                this.clearFileInfo();
+            }
+        }
+        showFileInfo() {
+            this.elements.fileName.textContent = this.currentFile.name;
+            this.elements.fileSize.textContent = utils.formatFileSize(this.currentFile.size);
+            this.elements.fileInfo.style.display = 'block';
+            this.elements.errorMessage.style.display = 'none';
+        }           
+        clearFileInfo() {
+            this.elements.fileName.textContent = '';
+            this.elements.fileSize.textContent = '';
+            this.elements.fileInfo.style.display = 'none';
+            this.elements.errorMessage.style.display = 'none';
+        }       
+
+        showError(message) {
+            this.elements.errorText.innerHTML = message;
+            this.elements.errorMessage.style.display = 'block';
+            this.elements.fileInfo.style.display = 'none';
+        }

@@ -2,41 +2,457 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Progression</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traitement en cours - Anonymiseur</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        .progress-circle {
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        .pulse-dot {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .step {
+            transition: all 0.3s ease;
+        }
+        .step.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .step.completed {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        .step-line {
+            transition: all 0.3s ease;
+        }
+        .step-line.completed {
+            background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+        }
+        .entity-badge {
+            animation: slideInUp 0.5s ease forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        @keyframes slideInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .background-animation {
+            background: linear-gradient(-45deg, #667eea, #764ba2, #667eea, #764ba2);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    </style>
 </head>
-<body>
-    <h2>Analyse en cours...</h2>
-    <div id="progress-container">
-        <div id="progress-bar"></div>
+<body class="background-animation min-h-screen">
+    <div class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-xl mb-4">
+                    <i class="fas fa-cogs text-white text-2xl"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">Analyse en cours</h1>
+                <p class="text-gray-600">Préservation du format original en cours...</p>
+            </div>
+
+            <!-- Progress Ring -->
+            <div class="flex justify-center mb-8">
+                <div class="relative">
+                    <svg class="progress-ring w-32 h-32" viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="8"/>
+                        <circle id="progress-circle" cx="60" cy="60" r="50" fill="none" 
+                                stroke="url(#gradient)" stroke-width="8" stroke-linecap="round"
+                                stroke-dasharray="314" stroke-dashoffset="314" class="progress-circle"/>
+                        <defs>
+                            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#667eea"/>
+                                <stop offset="100%" style="stop-color:#764ba2"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="text-center">
+                            <div id="progress-percentage" class="text-3xl font-bold text-gray-800">0%</div>
+                            <div class="text-sm text-gray-500">Progression</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Process Steps -->
+            <div class="mb-8">
+                <div class="flex items-center justify-between relative">
+                    <!-- Step 1: Upload -->
+                    <div class="step w-12 h-12 rounded-full flex items-center justify-center bg-gray-200 text-gray-600 font-bold relative z-10" id="step-1">
+                        <i class="fas fa-upload"></i>
+                    </div>
+                    <div class="step-line absolute top-6 left-12 right-12 h-1 bg-gray-200 -z-0" id="line-1"></div>
+                    
+                    <!-- Step 2: Reading -->
+                    <div class="step w-12 h-12 rounded-full flex items-center justify-center bg-gray-200 text-gray-600 font-bold relative z-10" id="step-2">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="step-line absolute top-6 left-1/3 right-1/3 h-1 bg-gray-200 -z-0" id="line-2"></div>
+                    
+                    <!-- Step 3: Analysis -->
+                    <div class="step w-12 h-12 rounded-full flex items-center justify-center bg-gray-200 text-gray-600 font-bold relative z-10" id="step-3">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div class="step-line absolute top-6 left-2/3 right-12 h-1 bg-gray-200 -z-0" id="line-3"></div>
+                    
+                    <!-- Step 4: Complete -->
+                    <div class="step w-12 h-12 rounded-full flex items-center justify-center bg-gray-200 text-gray-600 font-bold relative z-10" id="step-4">
+                        <i class="fas fa-check"></i>
+                    </div>
+                </div>
+                
+                <!-- Step Labels -->
+                <div class="flex justify-between mt-3 text-sm">
+                    <span class="text-gray-600 font-medium">Upload</span>
+                    <span class="text-gray-600 font-medium">Lecture</span>
+                    <span class="text-gray-600 font-medium">Analyse</span>
+                    <span class="text-gray-600 font-medium">Terminé</span>
+                </div>
+            </div>
+
+            <!-- Status Info -->
+            <div class="space-y-4 mb-8">
+                <!-- Mode -->
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div class="flex items-center">
+                        <div id="mode-icon" class="w-8 h-8 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-bolt text-xl"></i>
+                        </div>
+                        <span class="font-medium text-gray-700">Mode d'analyse</span>
+                    </div>
+                    <span id="mode-text" class="text-gray-800 font-semibold">Chargement...</span>
+                </div>
+
+                <!-- Entities Detected -->
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-tags text-blue-600"></i>
+                        </div>
+                        <span class="font-medium text-gray-700">Entités détectées</span>
+                    </div>
+                    <span id="entities-count" class="text-blue-600 font-semibold">0</span>
+                </div>
+
+                <!-- ETA -->
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-clock text-purple-600"></i>
+                        </div>
+                        <span class="font-medium text-gray-700">Temps restant estimé</span>
+                    </div>
+                    <span id="eta-text" class="text-purple-600 font-semibold">Calcul...</span>
+                </div>
+            </div>
+
+            <!-- Entity Types Preview -->
+            <div id="entity-preview" class="hidden">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Types d'entités trouvées</h3>
+                <div id="entity-badges" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- Current Status Message -->
+            <div class="text-center">
+                <p id="status-message" class="text-gray-600 mb-4">Initialisation du traitement...</p>
+                <div class="flex justify-center space-x-1">
+                    <div class="w-2 h-2 bg-blue-600 rounded-full pulse-dot"></div>
+                    <div class="w-2 h-2 bg-blue-600 rounded-full pulse-dot" style="animation-delay: 0.2s;"></div>
+                    <div class="w-2 h-2 bg-blue-600 rounded-full pulse-dot" style="animation-delay: 0.4s;"></div>
+                </div>
+            </div>
+
+            <!-- Error Display -->
+            <div id="error-display" class="hidden mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-red-600 mr-3"></i>
+                    <div>
+                        <h4 class="font-semibold text-red-800">Erreur de traitement</h4>
+                        <p id="error-message" class="text-red-700 mt-1"></p>
+                    </div>
+                </div>
+                <div class="mt-4 flex space-x-3">
+                    <button onclick="window.location.href='/'" 
+                            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                        <i class="fas fa-arrow-left mr-2"></i>Retour à l'accueil
+                    </button>
+                    <button onclick="retryProcessing()" 
+                            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-redo mr-2"></i>Réessayer
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
-    <p>Préservation du format original en cours...</p>
-    <p>Mode : <span id="mode"></span></p>
-    <p>Entités détectées : <span id="entities"></span></p>
-    <p>Temps estimé restant : <span id="eta"></span></p>
 
     <script>
         const params = new URLSearchParams(window.location.search);
         const jobId = params.get('job_id');
-        const bar = document.getElementById('progress-bar');
-        const modeEl = document.getElementById('mode');
-        const entitiesEl = document.getElementById('entities');
-        const etaEl = document.getElementById('eta');
+        
+        if (!jobId) {
+            window.location.href = '/';
+        }
 
-        async function checkStatus() {
-            const res = await fetch(`/status/${jobId}`);
-            const data = await res.json();
-            bar.style.width = `${data.progress}%`;
-            modeEl.textContent = data.mode || '';
-            entitiesEl.textContent = data.entities_detected ?? 0;
-            etaEl.textContent = data.eta != null ? `${Math.ceil(data.eta)}s` : '';
-            if (data.status === 'completed') {
-                window.location.href = `/interface?job_id=${jobId}`;
+        // DOM Elements
+        const progressCircle = document.getElementById('progress-circle');
+        const progressPercentage = document.getElementById('progress-percentage');
+        const modeIcon = document.getElementById('mode-icon');
+        const modeText = document.getElementById('mode-text');
+        const entitiesCount = document.getElementById('entities-count');
+        const etaText = document.getElementById('eta-text');
+        const statusMessage = document.getElementById('status-message');
+        const entityPreview = document.getElementById('entity-preview');
+        const entityBadges = document.getElementById('entity-badges');
+        const errorDisplay = document.getElementById('error-display');
+        const errorMessage = document.getElementById('error-message');
+
+        // Progress tracking
+        let lastProgress = 0;
+        let detectedEntityTypes = new Set();
+
+        // Status messages for different progress stages
+        const statusMessages = {
+            0: "Initialisation du traitement...",
+            10: "Validation du fichier en cours...",
+            20: "Lecture du document...",
+            40: "Extraction du contenu...",
+            60: "Analyse des entités en cours...",
+            80: "Finalisation de l'anonymisation...",
+            90: "Préparation de l'interface...",
+            100: "Traitement terminé !"
+        };
+
+        // Entity type colors and icons
+        const entityConfig = {
+            EMAIL: { color: 'blue', icon: 'envelope' },
+            PHONE: { color: 'green', icon: 'phone' },
+            DATE: { color: 'purple', icon: 'calendar' },
+            ADDRESS: { color: 'red', icon: 'map-marker-alt' },
+            PERSON: { color: 'indigo', icon: 'user' },
+            ORG: { color: 'yellow', icon: 'building' },
+            LOC: { color: 'pink', icon: 'map-pin' },
+            IBAN: { color: 'gray', icon: 'credit-card' },
+            SIREN: { color: 'orange', icon: 'hashtag' },
+            SIRET: { color: 'teal', icon: 'hashtag' }
+        };
+
+        // Update progress ring
+        function updateProgress(percent) {
+            const circumference = 314; // 2 * PI * 50
+            const offset = circumference - (percent / 100) * circumference;
+            
+            progressCircle.style.strokeDashoffset = offset;
+            progressPercentage.textContent = `${percent}%`;
+
+            // Update status message
+            const messageKey = Object.keys(statusMessages)
+                .map(Number)
+                .sort((a, b) => b - a)
+                .find(key => percent >= key);
+            
+            if (messageKey !== undefined) {
+                statusMessage.textContent = statusMessages[messageKey];
+            }
+
+            // Update steps
+            updateSteps(percent);
+        }
+
+        // Update step indicators
+        function updateSteps(percent) {
+            const steps = [
+                { id: 'step-1', lineId: 'line-1', threshold: 0 },
+                { id: 'step-2', lineId: 'line-2', threshold: 25 },
+                { id: 'step-3', lineId: 'line-3', threshold: 60 },
+                { id: 'step-4', lineId: null, threshold: 100 }
+            ];
+
+            steps.forEach((step, index) => {
+                const stepEl = document.getElementById(step.id);
+                const lineEl = step.lineId ? document.getElementById(step.lineId) : null;
+
+                if (percent >= step.threshold) {
+                    if (percent === 100 && index === steps.length - 1) {
+                        stepEl.classList.add('completed');
+                    } else if (percent > step.threshold || index === 0) {
+                        stepEl.classList.add('completed');
+                        stepEl.classList.remove('active');
+                    } else {
+                        stepEl.classList.add('active');
+                        stepEl.classList.remove('completed');
+                    }
+
+                    if (lineEl && index < steps.length - 1) {
+                        lineEl.classList.add('completed');
+                    }
+                } else {
+                    stepEl.classList.remove('active', 'completed');
+                    if (lineEl) {
+                        lineEl.classList.remove('completed');
+                    }
+                }
+            });
+        }
+
+        // Update mode display
+        function updateMode(mode) {
+            if (mode === 'ai') {
+                modeIcon.className = 'w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3';
+                modeIcon.innerHTML = '<i class="fas fa-brain text-purple-600 text-xl"></i>';
+                modeText.textContent = 'Analyse IA (NER + Regex)';
+                modeText.className = 'text-purple-600 font-semibold';
+            } else {
+                modeIcon.className = 'w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3';
+                modeIcon.innerHTML = '<i class="fas fa-bolt text-green-600 text-xl"></i>';
+                modeText.textContent = 'Analyse simple (Regex)';
+                modeText.className = 'text-green-600 font-semibold';
             }
         }
 
+        // Format ETA
+        function formatETA(eta) {
+            if (!eta || eta <= 0) return 'Calcul...';
+            
+            if (eta < 60) {
+                return `${Math.ceil(eta)}s`;
+            } else if (eta < 3600) {
+                const minutes = Math.floor(eta / 60);
+                const seconds = Math.ceil(eta % 60);
+                return `${minutes}m ${seconds}s`;
+            } else {
+                const hours = Math.floor(eta / 3600);
+                const minutes = Math.floor((eta % 3600) / 60);
+                return `${hours}h ${minutes}m`;
+            }
+        }
+
+        // Add entity badge
+        function addEntityBadge(type) {
+            if (detectedEntityTypes.has(type)) return;
+            
+            detectedEntityTypes.add(type);
+            const config = entityConfig[type] || { color: 'gray', icon: 'tag' };
+            
+            const badge = document.createElement('div');
+            badge.className = `entity-badge px-3 py-1 bg-${config.color}-100 text-${config.color}-800 text-sm rounded-full flex items-center`;
+            badge.innerHTML = `
+                <i class="fas fa-${config.icon} mr-2"></i>
+                ${type}
+            `;
+            
+            entityBadges.appendChild(badge);
+            
+            if (detectedEntityTypes.size === 1) {
+                entityPreview.classList.remove('hidden');
+            }
+        }
+
+        // Show error
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorDisplay.classList.remove('hidden');
+        }
+
+        // Retry processing
+        function retryProcessing() {
+            window.location.reload();
+        }
+
+        // Check status
+        async function checkStatus() {
+            try {
+                const response = await fetch(`/status/${jobId}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Erreur de communication avec le serveur');
+                }
+
+                // Update progress
+                const progress = data.progress || 0;
+                updateProgress(progress);
+
+                // Update mode
+                if (data.mode) {
+                    updateMode(data.mode);
+                }
+
+                // Update entities count
+                const entitiesDetected = data.entities_detected || 0;
+                entitiesCount.textContent = entitiesDetected;
+
+                // Update ETA
+                etaText.textContent = formatETA(data.eta);
+
+                // Add entity types if available
+                if (data.result && data.result.entities) {
+                    const entityTypes = [...new Set(data.result.entities.map(e => e.type))];
+                    entityTypes.forEach(type => addEntityBadge(type));
+                }
+
+                // Check for completion
+                if (data.status === 'completed') {
+                    statusMessage.textContent = 'Redirection vers l\'interface...';
+                    setTimeout(() => {
+                        window.location.href = `/interface?job_id=${jobId}`;
+                    }, 1000);
+                    return;
+                }
+
+                // Check for errors
+                if (data.status === 'error') {
+                    throw new Error(data.message || 'Erreur inconnue lors du traitement');
+                }
+
+                // Continue polling if still processing
+                if (data.status === 'processing') {
+                    setTimeout(checkStatus, 1000);
+                }
+
+            } catch (error) {
+                console.error('Erreur lors de la vérification du statut:', error);
+                showError(error.message);
+            }
+        }
+
+        // Start status checking
         checkStatus();
-        setInterval(checkStatus, 1000);
+
+        // Cleanup function for page unload
+        window.addEventListener('beforeunload', () => {
+            // Cancel any pending requests if needed
+        });
+
+        // Handle visibility change (pause polling when tab is hidden)
+        let isTabActive = true;
+        document.addEventListener('visibilitychange', () => {
+            isTabActive = !document.hidden;
+            if (isTabActive) {
+                checkStatus(); // Resume checking when tab becomes active
+            }
+        });
     </script>
 </body>
 </html>
