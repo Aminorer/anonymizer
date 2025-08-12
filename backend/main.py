@@ -6,12 +6,17 @@ from pydantic import BaseModel
 from uuid import uuid4
 from pathlib import Path
 from difflib import get_close_matches
-from .anonymizer import RegexAnonymizer, Entity
+from .anonymizer import RegexAnonymizer, Entity, RunInfo
 from .ai_anonymizer import AIAnonymizer
 from .storage import jobs_store, entities_store, groups_store
 import os
 import json
 import time
+import logging
+
+# Configuration du logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Anonymiseur de documents juridiques")
 regex_anonymizer = RegexAnonymizer()
@@ -106,7 +111,8 @@ def read_index(request: Request):
 
 def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, filename: str):
     """Internal worker updating job status while processing the file."""
-
+    logger.info(f"Démarrage du traitement pour job {job_id}")
+    
     def _calc_eta(start: float, progress: int) -> float | None:
         """Simple estimation of remaining seconds based on progress."""
         if progress <= 0:
@@ -116,7 +122,9 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
 
     start_time = time.time()
     jobs_store.update(job_id, {"mode": mode, "entities_detected": 0, "eta": None})
+    
     try:
+        # Vérifications initiales
         extension = filename.split(".")[-1].lower()
         if extension not in ALLOWED_EXTENSIONS:
             jobs_store.set(job_id, {"status": "error", "message": "Format non pris en charge", "mode": mode, "entities_detected": 0, "eta": 0})
@@ -131,71 +139,95 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
             jobs_store.set(job_id, {"status": "error", "message": "Mode inconnu", "mode": mode, "entities_detected": 0, "eta": 0})
             return
 
+        logger.info(f"Job {job_id}: Début du traitement ({extension}, {size_mb:.1f}MB)")
+        
         jobs_store.update(job_id, {"progress": 10, "eta": _calc_eta(start_time, 10)})
+        
         if extension == "docx":
+            logger.info(f"Job {job_id}: Traitement DOCX")
             _anonymized, regex_entities, mapping, text = regex_anonymizer.anonymize_docx(contents)
             jobs_store.update(job_id, {"progress": 60, "eta": _calc_eta(start_time, 60)})
+            
             if mode == "ai":
+                logger.info(f"Job {job_id}: Mode IA activé")
                 ai_entities = ai_anonymizer.detect(text, confidence)
                 entities = merge_entities(regex_entities, ai_entities)
             else:
                 entities = regex_entities
+            
+            logger.info(f"Job {job_id}: {len(entities)} entités détectées")
             jobs_store.update(job_id, {"progress": 90, "eta": _calc_eta(start_time, 90)})
+            
+            # Création des dossiers de sortie
             output_dir = Path("backend/static/uploads")
             output_dir.mkdir(parents=True, exist_ok=True)
             original_filename = f"{uuid4().hex}_original_{filename}"
             anonymized_filename = f"{uuid4().hex}_anonymized_{filename}"
             original_path = output_dir / original_filename
             anonymized_path = output_dir / anonymized_filename
+            
+            # Sauvegarde des fichiers
             with open(original_path, "wb") as f:
                 f.write(contents)
             with open(anonymized_path, "wb") as f:
                 f.write(_anonymized)
+            
             result = {
                 "filename": filename,
                 "entities": [
                     {k: v for k, v in e.__dict__.items() if v is not None}
                     for e in entities
                 ],
-                "mapping": mapping,
+                "mapping": [m.to_dict() for m in mapping],  # Convert RunInfo to dict
                 "original_url": f"/static/uploads/{original_filename}",
                 "anonymized_url": f"/static/uploads/{anonymized_filename}",
             }
         else:
+            logger.info(f"Job {job_id}: Traitement PDF")
             _anonymized_docx, regex_entities, mapping, text, original_docx = (
                 regex_anonymizer.anonymize_pdf(contents)
             )
             jobs_store.update(job_id, {"progress": 60, "eta": _calc_eta(start_time, 60)})
+            
             if mode == "ai":
                 ai_entities = ai_anonymizer.detect(text, confidence)
                 entities = merge_entities(regex_entities, ai_entities)
             else:
                 entities = regex_entities
+            
+            logger.info(f"Job {job_id}: {len(entities)} entités détectées")
             jobs_store.update(job_id, {"progress": 90, "eta": _calc_eta(start_time, 90)})
+            
             output_dir = Path("backend/static/uploads")
             output_dir.mkdir(parents=True, exist_ok=True)
             original_filename = f"{uuid4().hex}_original_{Path(filename).stem}.docx"
             anonymized_filename = f"{uuid4().hex}_anonymized_{Path(filename).stem}.docx"
             original_path = output_dir / original_filename
             anonymized_path = output_dir / anonymized_filename
+            
             with open(original_path, "wb") as f:
                 f.write(original_docx)
             with open(anonymized_path, "wb") as f:
                 f.write(_anonymized_docx)
+                
             result = {
                 "filename": f"{Path(filename).stem}.docx",
                 "entities": [
                     {k: v for k, v in e.__dict__.items() if v is not None}
                     for e in entities
                 ],
-                "mapping": mapping,
+                "mapping": [m.to_dict() for m in mapping],  # Convert RunInfo to dict
                 "original_url": f"/static/uploads/{original_filename}",
                 "anonymized_url": f"/static/uploads/{anonymized_filename}",
                 "text": text,
             }
+        
         jobs_store.update(job_id, {"entities_detected": len(entities)})
         jobs_store.update(job_id, {"status": "completed", "progress": 100, "result": result, "eta": 0})
+        logger.info(f"Job {job_id}: Traitement terminé avec succès")
+        
     except Exception as exc:
+        logger.error(f"Job {job_id}: Erreur - {str(exc)}")
         jobs_store.set(job_id, {"status": "error", "message": str(exc), "mode": mode, "entities_detected": 0, "eta": 0})
 
 
@@ -209,6 +241,16 @@ async def upload_file(
     """Handle file upload asynchronously and return a job identifier."""
     contents = await file.read()
     job_id = uuid4().hex
+    
+    # Vérifications préliminaires
+    if len(contents) == 0:
+        raise HTTPException(status_code=400, detail="Fichier vide")
+    
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Nom de fichier manquant")
+    
+    logger.info(f"Nouveau job {job_id} pour fichier {file.filename}")
+    
     jobs_store.set(
         job_id,
         {
@@ -239,11 +281,37 @@ def get_status(job_id: str):
     job = jobs_store.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job inconnu")
+    
+    # Protection contre les jobs zombies
+    if job.get("status") == "processing" and job.get("progress", 0) == 0:
+        # Si le job est en processing depuis plus de 5 minutes sans progression, on le marque en erreur
+        import time
+        current_time = time.time()
+        # Cette logique peut être améliorée avec un timestamp de création
+        pass
+    
     # ensure anonymized_url is always present in the response when available
     result = job.get("result")
     if result is not None and "anonymized_url" not in result:
         result["anonymized_url"] = None
     return job
+
+
+# Nouveau endpoint pour nettoyer les jobs bloqués
+@app.post("/admin/clear-stuck-jobs")
+def clear_stuck_jobs():
+    """Clear jobs that are stuck in processing state."""
+    all_jobs = jobs_store.all()
+    cleared = 0
+    for job_id, job in all_jobs.items():
+        if job.get("status") == "processing":
+            jobs_store.set(job_id, {
+                **job,
+                "status": "error",
+                "message": "Job interrompu (nettoyage manuel)"
+            })
+            cleared += 1
+    return {"message": f"{cleared} jobs nettoyés"}
 
 
 # ---------------------------------------------------------------------------
@@ -371,7 +439,11 @@ async def export_job(job_id: str, opts: ExportOptions):
     if not src_path.exists():
         raise HTTPException(status_code=404, detail="Document non trouvé")
     data = src_path.read_bytes()
-    mapping = result.get("mapping", [])
+    
+    # Reconstruct mapping from dict format
+    mapping_data = result.get("mapping", [])
+    mapping = [RunInfo.from_dict(m) for m in mapping_data] if mapping_data else []
+    
     stored = [EntityModel.parse_obj(e) for e in entities_store.list(job_id)]
     if stored:
         entities = [

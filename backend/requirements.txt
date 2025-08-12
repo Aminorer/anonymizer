@@ -11,3 +11,6 @@ httpx
 python-multipart
 torch
 PyMuPDF
+numpy<2
+scikit-learn<1.4
+scipy<1.13

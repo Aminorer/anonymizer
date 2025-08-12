@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import re
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 from io import BytesIO
 import tempfile
 from pathlib import Path
@@ -48,6 +48,27 @@ class RunInfo:
             _, s_idx, p_idx, r_idx = self.path
             return doc.sections[s_idx].footer.paragraphs[p_idx].runs[r_idx]
         raise ValueError("Unknown path type")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert RunInfo to JSON-serializable dict."""
+        return {
+            'start': self.start,
+            'end': self.end,
+            'page': self.page,
+            'section': self.section,
+            'path': list(self.path)  # Convert tuple to list for JSON
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'RunInfo':
+        """Create RunInfo from dict."""
+        return cls(
+            start=data['start'],
+            end=data['end'],
+            page=data['page'],
+            section=data['section'],
+            path=tuple(data['path'])  # Convert list back to tuple
+        )
 
 
 class RegexAnonymizer:

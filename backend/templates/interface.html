@@ -18,7 +18,7 @@
       <button @click="nextPage">Suivant</button>
       <button @click="undo">Annuler</button>
       <button @click="redo">Rétablir</button>
-      <span>{{ currentPage }} / {{ totalPages }}</span>
+      <span>{{ '{{' }} currentPage {{ '}}' }} / {{ '{{' }} totalPages {{ '}}' }}</span>
     </div>
     <div class="container">
       <div id="viewer" class="viewer"></div>
@@ -35,7 +35,7 @@
             <button @click="deleteSelected">Supprimer sélection</button>
             <select v-model="bulkGroup">
               <option disabled value="">--Groupe--</option>
-              <option v-for="grp in groupStore.items" :value="grp.id">{{ grp.name }}</option>
+              <option v-for="grp in groupStore.items" :key="grp.id" :value="grp.id">{{ '{{' }} grp.name {{ '}}' }}</option>
             </select>
             <button @click="groupSelected">Grouper sélection</button>
           </div>
@@ -69,7 +69,7 @@
           </div>
           <ul class="group-list">
             <li v-for="grp in groupStore.items" :key="grp.id" @dragover.prevent @drop="assignToGroup(grp.id,$event)">
-              {{ grp.name }} ({{ grp.entities.length }})
+              {{ '{{' }} grp.name {{ '}}' }} ({{ '{{' }} grp.entities.length {{ '}}' }})
               <button @click="deleteGroup(grp.id)">x</button>
             </li>
           </ul>
@@ -131,9 +131,10 @@
         <button @click="showGroupModal=false">Annuler</button>
       </div>
     </div>
-    <div id="download" v-if="status">
-      <button @click="showExportModal=true">Exporter anonymisé</button> |
-      <a :href="status.original_url">Télécharger original</a>
+    <div id="download" v-if="status" style="margin-top: 20px; padding: 10px; border-top: 1px solid #ccc;">
+      <button @click="exportDoc" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; margin-right: 10px;">Télécharger DOCX anonymisé</button>
+      <button @click="showExportModal=true" style="background: #6c757d; color: white; padding: 10px 15px; border: none; border-radius: 4px; margin-right: 10px;">Paramètres d'export</button>
+      <a :href="status.original_url" style="color: #007bff; text-decoration: none;">Télécharger original</a>
     </div>
     <div v-if="showExportModal" class="modal">
       <div class="modal-content">
@@ -141,7 +142,7 @@
         <label>Filigrane</label>
         <input v-model="watermark" placeholder="Texte du filigrane" />
         <label><input type="checkbox" v-model="wantAudit" /> Rapport d'audit</label>
-        <button @click="exportDoc">Exporter</button>
+        <button @click="exportWithOptions">Exporter</button>
         <button @click="showExportModal=false">Annuler</button>
       </div>
     </div>
