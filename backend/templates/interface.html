@@ -432,7 +432,7 @@
                                          class="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
                                         <div class="text-sm font-medium text-gray-800 mb-1">{{ result.text }}</div>
                                         <div class="flex items-center justify-between">
-                                            <span class="text-xs text-gray-500">Page {% raw %}{{ result.page || '?' }}{% endraw %}</span>
+                                            <span class="text-xs text-gray-500">Page {{ result.page || '?' }}</span>
                                             <button @click="addSearchResultAsEntity(result)"
                                                     class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors">
                                                 <i class="fas fa-plus mr-1"></i>Ajouter
@@ -1384,8 +1384,10 @@
                             const text = container.textContent || '';
                             const regex = searchType.value === 'regex' ? 
                                 new RegExp(searchTerm.value, 'gi') :
-                                new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g, '\\                    entityStore.items = prev.entities;
-                    groupStore.items = prev.groups;'), 'gi');
+                                new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g, '\\                const redo = () => {
+                    if (!future.value.length) return;
+                    history.value.push({
+                        entities: JSON.parse'), 'gi');
                             
                             const matches = [];
                             let match;
@@ -1426,8 +1428,10 @@
 
                     const regex = searchType.value === 'regex' ? 
                         new RegExp(searchTerm.value, 'gi') :
-                        new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g, '\\                    entityStore.items = prev.entities;
-                    groupStore.items = prev.groups;'), 'gi');
+                        new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g, '\\                const redo = () => {
+                    if (!future.value.length) return;
+                    history.value.push({
+                        entities: JSON.parse'), 'gi');
 
                     nodes.forEach((n) => {
                         const text = n.textContent;

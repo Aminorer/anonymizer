@@ -730,8 +730,8 @@
             
             const regex = searchType === 'regex' ? 
                 new RegExp(searchTerm, 'gi') :
-                new RegExp(utils.sanitizeText(searchTerm).replace(/[.*+?^${}()|[\]\\]/g, '\\            setStatus(status) {
-                this.'), 'gi');
+                new RegExp(utils.sanitizeText(searchTerm).replace(/[.*+?^${}()|[\]\\]/g, '\\            documentUrl: (state) => {
+                if (!state.status) return null;'), 'gi');
             
             textNodes.forEach(textNode => {
                 const text = textNode.textContent;
