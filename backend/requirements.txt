@@ -2,7 +2,10 @@ fastapi
 uvicorn
 python-docx
 pdfplumber
+pdf2docx
 jinja2
 transformers
 pytest
 pillow
+httpx
+python-multipart

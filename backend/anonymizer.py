@@ -2,8 +2,10 @@ from dataclasses import dataclass
 import re
 from typing import List, Tuple, Optional
 from io import BytesIO
+import tempfile
+from pathlib import Path
 
-import pdfplumber
+from pdf2docx import parse as pdf2docx_parse
 from docx import Document
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
@@ -251,17 +253,17 @@ class RegexAnonymizer:
 
     # ------------------------------------------------------------------
     # PDF utilities
-    def anonymize_pdf(self, data: bytes) -> Tuple[str, List[Entity], str]:
-        """Extract text from a PDF, anonymize it and return positions.
+    def anonymize_pdf(
+        self, data: bytes
+    ) -> Tuple[bytes, List[Entity], List[RunInfo], str, bytes]:
+        """Convert a PDF to DOCX, anonymize it and return mapping info."""
 
-        Returns the anonymized text, detected entities and the original text.
-        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pdf_path = Path(tmpdir) / "input.pdf"
+            docx_path = Path(tmpdir) / "converted.docx"
+            pdf_path.write_bytes(data)
+            pdf2docx_parse(str(pdf_path), str(docx_path))
+            original_docx = docx_path.read_bytes()
 
-        with pdfplumber.open(BytesIO(data)) as pdf:
-            pages = [page.extract_text() or "" for page in pdf.pages]
-        text = "\n".join(pages)
-        entities = self.detect(text)
-        anonymized_text = text
-        for etype, pattern in self.PATTERNS.items():
-            anonymized_text = pattern.sub(f"[{etype}]", anonymized_text)
-        return anonymized_text, entities, text
+        anonymized, entities, mapping, text = self.anonymize_docx(original_docx)
+        return anonymized, entities, mapping, text, original_docx
