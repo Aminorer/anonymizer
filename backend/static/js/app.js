@@ -191,23 +191,24 @@
         if (!status.value || !status.value.entities) return false;
         let hasCoords = false;
         status.value.entities.forEach((ent) => {
+          const { page, x, y, width, height } = ent;
           if (
-            ent.page === undefined ||
-            ent.x === undefined ||
-            ent.y === undefined ||
-            ent.width === undefined ||
-            ent.height === undefined
+            page === undefined ||
+            x === undefined ||
+            y === undefined ||
+            width === undefined ||
+            height === undefined
           )
             return;
           hasCoords = true;
-          const pageDiv = document.querySelector(`.pdf-page[data-page='${ent.page}']`);
+          const pageDiv = document.querySelector(`.pdf-page[data-page='${page}']`);
           if (!pageDiv) return;
           const box = document.createElement('div');
           box.className = 'pdf-highlight';
-          box.style.left = `${ent.x}px`;
-          box.style.top = `${ent.y}px`;
-          box.style.width = `${ent.width}px`;
-          box.style.height = `${ent.height}px`;
+          box.style.left = `${Number(x)}px`;
+          box.style.top = `${Number(y)}px`;
+          box.style.width = `${Number(width)}px`;
+          box.style.height = `${Number(height)}px`;
           pageDiv.appendChild(box);
         });
         return hasCoords;
