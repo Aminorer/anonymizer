@@ -21,30 +21,15 @@
                 <input type="range" id="confidence" name="confidence" min="0" max="1" step="0.01" value="0.5">
                 <span id="confidence-value">0.50</span>
             </div>
-            <div>
-                <input type="file" name="file" accept=".pdf,.docx" required />
+            <div id="dropzone" class="dropzone">
+                Déposez votre fichier ici ou cliquez pour sélectionner
+                <input type="file" id="file-input" name="file" accept=".pdf,.docx" required hidden />
             </div>
+            <p id="error-message" class="error"></p>
             <button type="submit">Envoyer</button>
         </form>
         <p>Format de sortie : DOCX identique au document original</p>
     </div>
-    <script>
-        const slider = document.getElementById('confidence');
-        const output = document.getElementById('confidence-value');
-        slider.addEventListener('input', () => {
-            output.textContent = parseFloat(slider.value).toFixed(2);
-        });
-
-        const form = document.getElementById('upload-form');
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(form);
-            const response = await fetch('/upload', { method: 'POST', body: formData });
-            const data = await response.json();
-            if (data.job_id) {
-                window.location.href = `/progress?job_id=${data.job_id}`;
-            }
-        });
-    </script>
+    <script src="/static/js/dropzone.js"></script>
 </body>
 </html>
