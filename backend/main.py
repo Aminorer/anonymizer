@@ -146,7 +146,9 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
                 "original_url": f"/static/uploads/{original_filename}",
             }
         else:
-            anonymized_text, regex_entities, text = regex_anonymizer.anonymize_pdf(contents)
+            _anonymized_docx, regex_entities, mapping, text, original_docx = (
+                regex_anonymizer.anonymize_pdf(contents)
+            )
             jobs[job_id]["progress"] = 60
             if mode == "ai":
                 ai_entities = ai_anonymizer.detect(text, confidence)
@@ -156,20 +158,16 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
             jobs[job_id]["progress"] = 90
             output_dir = Path("backend/static/uploads")
             output_dir.mkdir(parents=True, exist_ok=True)
-            output_filename = f"{uuid4().hex}_{Path(filename).stem}.txt"
-            output_path = output_dir / output_filename
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(anonymized_text)
-            original_filename = f"{uuid4().hex}_{filename}"
+            original_filename = f"{uuid4().hex}_original_{Path(filename).stem}.docx"
             original_path = output_dir / original_filename
             with open(original_path, "wb") as f:
-                f.write(contents)
+                f.write(original_docx)
             result = {
-                "filename": filename,
-                "text": anonymized_text,
+                "filename": f"{Path(filename).stem}.docx",
                 "entities": [e.__dict__ for e in entities],
-                "download_url": f"/static/uploads/{output_filename}",
+                "mapping": mapping,
                 "original_url": f"/static/uploads/{original_filename}",
+                "text": text,
             }
         jobs[job_id].update({"status": "completed", "progress": 100, "result": result})
     except Exception as exc:
