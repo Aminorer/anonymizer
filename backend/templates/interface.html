@@ -1,1617 +1,883 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interface d'anonymisation</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .viewer-container {
-            height: calc(100vh - 200px);
-            min-height: 600px;
-        }
-        .sidebar {
-            height: calc(100vh - 200px);
-            min-height: 600px;
-        }
-        .entity-highlight {
-            background: rgba(255, 255, 0, 0.3);
-            border-radius: 2px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        .entity-highlight:hover {
-            background: rgba(255, 255, 0, 0.5);
-        }
-        .entity-highlight.selected {
-            background: rgba(59, 130, 246, 0.3);
-        }
-        .pdf-page {
-            position: relative;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .pdf-highlight {
-            position: absolute;
-            background: rgba(255, 255, 0, 0.5);
-            border: 1px solid rgba(255, 255, 0, 0.8);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .pdf-highlight:hover {
-            background: rgba(255, 255, 0, 0.7);
-        }
-        .tab-button {
-            transition: all 0.3s ease;
-        }
-        .tab-button.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            transform: translateY(-2px);
-        }
-        .entity-row {
-            transition: all 0.2s ease;
-        }
-        .entity-row:hover {
-            background: #f8fafc;
-        }
-        .entity-row.selected {
-            background: #dbeafe;
-            border-left: 4px solid #3b82f6;
-        }
-        .group-item {
-            transition: all 0.3s ease;
-        }
-        .group-item:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .modal-overlay {
-            backdrop-filter: blur(4px);
-        }
-        .toast {
-            animation: slideInRight 0.3s ease;
-        }
-        @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-        .zoom-controls {
-            position: sticky;
-            top: 20px;
-            z-index: 10;
-        }
-        .floating-selection {
-            position: fixed;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-            padding: 8px;
-            z-index: 1000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s ease;
-        }
-        .floating-selection.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interface d'anonymisation</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<style>
+.viewer-container{height:calc(100vh - 200px);min-height:600px}
+.sidebar{height:calc(100vh - 200px);min-height:600px}
+.entity-highlight{background:rgba(255,255,0,.3);border-radius:2px;cursor:pointer;transition:background-color .2s ease}
+.entity-highlight:hover{background:rgba(255,255,0,.5)}
+.entity-highlight.selected{background:rgba(59,130,246,.3)}
+.pdf-page{position:relative;margin-bottom:20px;box-shadow:0 4px 6px rgba(0,0,0,.1)}
+.pdf-highlight{position:absolute;background:rgba(255,255,0,.5);border:1px solid rgba(255,255,0,.8);cursor:pointer;transition:all .2s ease}
+.pdf-highlight:hover{background:rgba(255,255,0,.7)}
+.tab-button{transition:all .3s ease}
+.tab-button.active{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;transform:translateY(-2px)}
+.entity-row{transition:all .2s ease}
+.entity-row:hover{background:#f8fafc}
+.entity-row.selected{background:#dbeafe;border-left:4px solid #3b82f6}
+.group-item{transition:all .3s ease}
+.group-item:hover{transform:translateY(-1px);box-shadow:0 4px 6px rgba(0,0,0,.1)}
+.modal-overlay{backdrop-filter:blur(4px)}
+.toast{animation:slideInRight .3s ease}
+@keyframes slideInRight{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.zoom-controls{position:sticky;top:20px;z-index:10}
+.floating-selection{position:fixed;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 10px 15px rgba(0,0,0,.1);padding:8px;z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s ease}
+.floating-selection.show{opacity:1;pointer-events:auto}
+</style>
 </head>
 <body class="bg-gray-50">
-    <div id="app" class="flex flex-col h-screen">
-        <!-- Header -->
-        <header class="bg-white shadow-sm border-b">
-            <div class="px-6 py-4">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-4">
-                        <button onclick="window.location.href='/'" 
-                                class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-                            <i class="fas fa-arrow-left mr-2"></i>
-                            Retour
-                        </button>
-                        <div class="h-6 w-px bg-gray-300"></div>
-                        <h1 class="text-xl font-semibold text-gray-800">Interface d'anonymisation</h1>
-                    </div>
-                    
-                    <!-- View Toggle -->
-                    <div class="flex items-center space-x-4">
-                        <div class="flex bg-gray-100 rounded-lg p-1">
-                            <button @click="changeView('original')" 
-                                    :class="['px-4 py-2 rounded-md transition-all', view === 'original' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900']">
-                                <i class="fas fa-file-alt mr-2"></i>Original
-                            </button>
-                            <button @click="changeView('anonymized')" 
-                                    :class="['px-4 py-2 rounded-md transition-all', view === 'anonymized' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900']">
-                                <i class="fas fa-shield-alt mr-2"></i>Anonymisé
-                            </button>
-                        </div>
-                        
-                        <!-- Quick Actions -->
-                        <div class="flex items-center space-x-2">
-                            <button @click="undo" :disabled="history.length === 0"
-                                    class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
-                                <i class="fas fa-undo"></i>
-                            </button>
-                            <button @click="redo" :disabled="future.length === 0"
-                                    class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
-                                <i class="fas fa-redo"></i>
-                            </button>
-                            <div class="h-6 w-px bg-gray-300"></div>
-                            <button @click="showDetectionModal = true"
-                                    class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                                <i class="fas fa-plus mr-2"></i>Ajouter
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </header>
-
-        <!-- Main Content -->
-        <div class="flex flex-1 overflow-hidden">
-            <!-- Document Viewer -->
-            <div class="flex-1 bg-white border-r">
-                <!-- Viewer Controls -->
-                <div class="zoom-controls bg-white border-b p-4 flex items-center justify-between">
-                    <div class="flex items-center space-x-4">
-                        <!-- Zoom Controls -->
-                        <div class="flex items-center space-x-2">
-                            <button @click="zoomOut" class="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100">
-                                <i class="fas fa-search-minus"></i>
-                            </button>
-                              <span class="text-sm text-gray-600 min-w-16 text-center">{% raw %}{{ Math.round(zoom * 100) }}{% endraw %}%</span>
-                            <button @click="zoomIn" class="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100">
-                                <i class="fas fa-search-plus"></i>
-                            </button>
-                        </div>
-                        
-                        <!-- Page Navigation -->
-                        <div class="flex items-center space-x-2" v-if="totalPages > 1">
-                            <button @click="prevPage" :disabled="currentPage <= 1"
-                                    class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100">
-                                <i class="fas fa-chevron-left"></i>
-                            </button>
-                            <span class="text-sm text-gray-600">Page {{ currentPage }} / {{ totalPages }}</span>
-                            <button @click="nextPage" :disabled="currentPage >= totalPages"
-                                    class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100">
-                                <i class="fas fa-chevron-right"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Document Stats -->
-                    <div class="flex items-center space-x-6 text-sm text-gray-600">
-                        <div class="flex items-center">
-                            <i class="fas fa-tags mr-2 text-blue-600"></i>
-                            <span>{{ entities.length }} entités</span>
-                        </div>
-                        <div class="flex items-center" v-if="processingMode === 'ai'">
-                            <i class="fas fa-brain mr-2 text-purple-600"></i>
-                            <span>Mode IA</span>
-                        </div>
-                        <div class="flex items-center" v-else>
-                            <i class="fas fa-bolt mr-2 text-green-600"></i>
-                            <span>Mode Regex</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Document Viewer -->
-                <div class="viewer-container overflow-auto p-6 bg-gray-50">
-                    <div id="viewer" class="mx-auto bg-white shadow-lg rounded-lg overflow-hidden" 
-                         :style="{ transform: `scale(${zoom})`, transformOrigin: 'top center' }"
-                         @mouseup="handleTextSelection">
-                        <!-- Document content will be rendered here -->
-                        <div v-if="!status" class="flex items-center justify-center h-96">
-                            <div class="text-center">
-                                <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
-                                <p class="text-gray-600">Chargement du document...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Sidebar -->
-            <div class="w-96 bg-white sidebar overflow-hidden flex flex-col">
-                <!-- Tabs -->
-                <div class="border-b">
-                    <div class="flex">
-                        <button @click="activeTab = 'entities'" 
-                                :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'entities' ? 'active' : 'text-gray-600 hover:text-gray-900']">
-                            <i class="fas fa-tags mr-2"></i>Entités
-                        </button>
-                        <button @click="activeTab = 'groups'" 
-                                :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'groups' ? 'active' : 'text-gray-600 hover:text-gray-900']">
-                            <i class="fas fa-layer-group mr-2"></i>Groupes
-                        </button>
-                        <button @click="activeTab = 'search'" 
-                                :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'search' ? 'active' : 'text-gray-600 hover:text-gray-900']">
-                            <i class="fas fa-search mr-2"></i>Recherche
-                        </button>
-                        <button @click="activeTab = 'rules'" 
-                                :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'rules' ? 'active' : 'text-gray-600 hover:text-gray-900']">
-                            <i class="fas fa-cog mr-2"></i>Règles
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Tab Content -->
-                <div class="flex-1 overflow-auto">
-                    <!-- Entities Tab -->
-                    <div v-if="activeTab === 'entities'" class="p-4">
-                        <!-- Entity Actions -->
-                        <div class="mb-4 space-y-3">
-                            <div class="flex space-x-2">
-                                <button @click="showDetectionModal = true"
-                                        class="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                                    <i class="fas fa-plus mr-2"></i>Ajouter
-                                </button>
-                                <button @click="deleteSelected" :disabled="selected.length === 0"
-                                        class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
-                                    <i class="fas fa-trash mr-2"></i>Supprimer
-                                </button>
-                            </div>
-                            
-                            <!-- Bulk Group Assignment -->
-                            <div class="flex space-x-2" v-if="selected.length > 0">
-                                <select v-model="bulkGroup" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                    <option value="">--Assigner au groupe--</option>
-                                    <option v-for="grp in groupStore.items" :key="grp.id" :value="grp.id">
-                                        {{ grp.name }}
-                                    </option>
-                                </select>
-                                <button @click="groupSelected" :disabled="!bulkGroup"
-                                        class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
-                                    <i class="fas fa-check"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Entities List -->
-                        <div class="space-y-2">
-                            <div class="flex items-center mb-3">
-                                <input type="checkbox" @change="toggleAll($event)" 
-                                       :checked="selected.length === entities.length && entities.length > 0"
-                                       class="mr-2 rounded">
-                                <span class="text-sm text-gray-600">
-                                    <span v-if="selected.length > 0">{{ selected.length }} sélectionnée(s)</span>
-                                    <span v-else>{{ entities.length }} entité(s)</span>
-                                </span>
-                            </div>
-                            
-                            <div v-for="(ent, idx) in entities" :key="ent.id" 
-                                 :class="['entity-row p-3 border border-gray-200 rounded-lg cursor-pointer', selected.includes(ent.id) ? 'selected' : '']"
-                                 @click="toggleEntitySelection(ent.id)"
-                                 draggable="true"
-                                 @dragstart="dragStart(idx, $event)"
-                                 @dragover.prevent
-                                 @drop="drop(idx)">
-                                
-                                <div class="flex items-start space-x-3">
-                                    <input type="checkbox" :checked="selected.includes(ent.id)" 
-                                           @click.stop
-                                           @change="toggleEntitySelection(ent.id)"
-                                           class="mt-1 rounded">
-                                    
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center justify-between mb-2">
-                                            <span :class="['px-2 py-1 text-xs rounded-full font-medium', getEntityTypeClass(ent.type)]">
-                                                {{ ent.type }}
-                                            </span>
-                                            <span v-if="ent.page" class="text-xs text-gray-500">Page {{ ent.page }}</span>
-                                        </div>
-                                        
-                                        <div class="space-y-2">
-                                            <div>
-                                                <label class="block text-xs text-gray-600 mb-1">Valeur originale</label>
-                                                <input v-model="ent.value" @change="updateEntity(ent)"
-                                                       class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
-                                            </div>
-                                            <div>
-                                                <label class="block text-xs text-gray-600 mb-1">Remplacement</label>
-                                                <input v-model="ent.replacement" @change="updateEntity(ent)"
-                                                       :placeholder="`[${ent.type}]`"
-                                                       class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
-                                            </div>
-                                            
-                                            <div v-if="processingMode === 'ai' && ent.confidence !== null" class="flex items-center justify-between">
-                                                <span class="text-xs text-gray-600">Confiance</span>
-                                                <span class="text-xs font-medium" :class="ent.confidence >= 0.8 ? 'text-green-600' : ent.confidence >= 0.5 ? 'text-yellow-600' : 'text-red-600'">
-                                                    {{ (ent.confidence * 100).toFixed(0) }}%
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div v-if="entities.length === 0" class="text-center py-8 text-gray-500">
-                                <i class="fas fa-tags text-4xl mb-4 opacity-50"></i>
-                                <p>Aucune entité détectée</p>
-                                <button @click="showDetectionModal = true" 
-                                        class="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                                    Ajouter manuellement
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Groups Tab -->
-                    <div v-if="activeTab === 'groups'" class="p-4">
-                        <div class="mb-4">
-                            <button @click="showGroupModal = true"
-                                    class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                                <i class="fas fa-plus mr-2"></i>Créer un groupe
-                            </button>
-                        </div>
-
-                        <div class="space-y-3">
-                            <div v-for="grp in groupStore.items" :key="grp.id"
-                                 class="group-item p-4 border border-gray-200 rounded-lg"
-                                 @dragover.prevent
-                                 @drop="assignToGroup(grp.id, $event)">
-                                
-                                <div class="flex items-center justify-between mb-3">
-                                    <h4 class="font-medium text-gray-800">{{ grp.name }}</h4>
-                                    <div class="flex items-center space-x-2">
-                                        <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                            {{ grp.entities.length }}
-                                        </span>
-                                        <button @click="deleteGroup(grp.id)"
-                                                class="text-red-500 hover:text-red-700 text-sm">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div class="text-sm text-gray-600 mb-2">
-                                    Glissez-déposez des entités ici
-                                </div>
-                                
-                                <div class="space-y-1">
-                                    <div v-for="entityId in grp.entities" :key="entityId"
-                                         class="text-xs p-2 bg-gray-50 rounded border">
-                                        <span v-if="getEntityById(entityId)">{{ getEntityById(entityId).value }}</span>
-                                        <span v-else>Entité inconnue</span>
-                                        <span class="text-gray-500 ml-2">
-                                            (<span v-if="getEntityById(entityId)">{{ getEntityById(entityId).type }}</span><span v-else>?</span>)
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div v-if="groupStore.items.length === 0" class="text-center py-8 text-gray-500">
-                                <i class="fas fa-layer-group text-4xl mb-4 opacity-50"></i>
-                                <p>Aucun groupe créé</p>
-                                <p class="text-sm mt-2">Les groupes permettent d'appliquer des règles communes à plusieurs entités</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Search Tab -->
-                    <div v-if="activeTab === 'search'" class="p-4">
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Type de recherche</label>
-                                <select v-model="searchType" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                    <option value="text">Texte simple</option>
-                                    <option value="regex">Expression régulière</option>
-                                    <option value="semantic">Recherche sémantique</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Terme de recherche</label>
-                                <div class="flex space-x-2">
-                                    <input v-model="searchTerm" @keyup.enter="search"
-                                           placeholder="Rechercher dans le document..."
-                                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
-                                    <button @click="search" :disabled="!searchTerm"
-                                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                                        <i class="fas fa-search"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div v-if="searchResults.length > 0">
-                                <h4 class="text-sm font-medium text-gray-700 mb-2">
-                                    Résultats ({{ searchResults.length }})
-                                </h4>
-                                <div class="space-y-2 max-h-64 overflow-y-auto">
-                                    <div v-for="(result, idx) in searchResults" :key="idx"
-                                         class="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                        <div class="text-sm font-medium text-gray-800 mb-1">{{ result.text }}</div>
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-xs text-gray-500">Page {% raw %}{{ result.page || '?' }}{% endraw %}</span>
-                                            <button @click="addSearchResultAsEntity(result)"
-                                                    class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors">
-                                                <i class="fas fa-plus mr-1"></i>Ajouter
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div v-if="searchHistory.length > 0">
-                                <h4 class="text-sm font-medium text-gray-700 mb-2">Historique</h4>
-                                <div class="space-y-1">
-                                    <div v-for="(term, idx) in searchHistory" :key="idx"
-                                         class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                        <span class="text-sm text-gray-700">{{ term }}</span>
-                                        <button @click="searchTerm = term; search()"
-                                                class="text-blue-600 hover:text-blue-800 text-xs">
-                                            <i class="fas fa-redo"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Rules Tab -->
-                    <div v-if="activeTab === 'rules'" class="p-4">
-                        <div class="space-y-6">
-                            <!-- Regex Rules -->
-                            <div>
-                                <h3 class="text-lg font-medium text-gray-800 mb-3">Patterns Regex</h3>
-                                <div class="space-y-3">
-                                    <div v-for="(rule, idx) in rules.regex_rules" :key="idx"
-                                         class="p-3 border border-gray-200 rounded-lg">
-                                        <div class="space-y-2">
-                                            <div>
-                                                <label class="block text-xs text-gray-600 mb-1">Pattern</label>
-                                                <input v-model="rule.pattern" placeholder="Expression régulière"
-                                                       class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
-                                            </div>
-                                            <div class="flex space-x-2">
-                                                <div class="flex-1">
-                                                    <label class="block text-xs text-gray-600 mb-1">Remplacement</label>
-                                                    <input v-model="rule.replacement" placeholder="Texte de remplacement"
-                                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
-                                                </div>
-                                                <button @click="removeRegex(idx)"
-                                                        class="mt-5 px-2 py-1 text-red-600 hover:text-red-800 text-sm">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Add New Regex -->
-                                    <div class="p-3 border-2 border-dashed border-gray-300 rounded-lg">
-                                        <div class="space-y-2">
-                                            <input v-model="newRegex.pattern" placeholder="Nouveau pattern regex"
-                                                   class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
-                                            <div class="flex space-x-2">
-                                                <input v-model="newRegex.replacement" placeholder="Remplacement"
-                                                       class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded">
-                                                <button @click="addRegex" :disabled="!newRegex.pattern"
-                                                        class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                                                    <i class="fas fa-plus"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- NER Parameters -->
-                            <div v-if="processingMode === 'ai'">
-                                <h3 class="text-lg font-medium text-gray-800 mb-3">Paramètres NER</h3>
-                                <div class="space-y-3">
-                                    <div>
-                                        <label class="block text-sm text-gray-600 mb-1">Modèle</label>
-                                        <input v-model="rules.ner.model" placeholder="Nom du modèle Hugging Face"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm text-gray-600 mb-1">Seuil de confiance</label>
-                                        <input v-model.number="rules.ner.confidence" type="number" step="0.01" min="0" max="1"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Anonymization Styles -->
-                            <div>
-                                <h3 class="text-lg font-medium text-gray-800 mb-3">Styles d'anonymisation</h3>
-                                <div class="space-y-3">
-                                    <div v-for="(style, type) in rules.styles" :key="type"
-                                         class="flex items-center space-x-2">
-                                        <span class="text-sm text-gray-600 w-20">{{ type }}</span>
-                                        <input v-model="rules.styles[type]" :placeholder="`Style pour ${type}`"
-                                               class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded">
-                                        <button @click="removeStyle(type)"
-                                                class="px-2 py-1 text-red-600 hover:text-red-800 text-sm">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                    
-                                    <!-- Add New Style -->
-                                    <div class="flex space-x-2">
-                                        <input v-model="newStyle.type" placeholder="Type d'entité"
-                                               class="w-24 px-2 py-1 text-sm border border-gray-300 rounded">
-                                        <input v-model="newStyle.style" placeholder="Style de remplacement"
-                                               class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded">
-                                        <button @click="addStyle" :disabled="!newStyle.type || !newStyle.style"
-                                                class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                                            <i class="fas fa-plus"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Save Rules -->
-                            <div class="pt-4 border-t">
-                                <button @click="saveRules"
-                                        class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                                    <i class="fas fa-save mr-2"></i>Enregistrer les règles
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Bottom Bar -->
-        <footer class="bg-white border-t px-6 py-4">
-            <div class="flex items-center justify-between">
-                <!-- Stats -->
-                <div class="flex items-center space-x-6 text-sm text-gray-600">
-                    <div class="flex items-center">
-                        <i class="fas fa-tags mr-2 text-blue-600"></i>
-                        <span>{{ entities.length }} entités totales</span>
-                    </div>
-                    <div class="flex items-center" v-if="selected.length > 0">
-                        <i class="fas fa-check-square mr-2 text-green-600"></i>
-                        <span>{{ selected.length }} sélectionnées</span>
-                    </div>
-                    <div class="flex items-center" v-if="groupStore.items.length > 0">
-                        <i class="fas fa-layer-group mr-2 text-purple-600"></i>
-                        <span>{{ groupStore.items.length }} groupes</span>
-                    </div>
-                </div>
-
-                <!-- Export Actions -->
-                <div class="flex items-center space-x-4">
-                    <button @click="showExportModal = true"
-                            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                        <i class="fas fa-cog mr-2"></i>Options d'export
-                    </button>
-                    <button @click="exportDoc"
-                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                        <i class="fas fa-download mr-2"></i>Télécharger DOCX anonymisé
-                    </button>
-                </div>
-            </div>
-        </footer>
-
-        <!-- Floating Selection Menu -->
-        <div id="floating-selection" class="floating-selection">
-            <div class="flex space-x-2">
-                <select id="entity-type-select" class="px-2 py-1 text-sm border border-gray-300 rounded">
-                    <option value="PERSON">Personne</option>
-                    <option value="ORG">Organisation</option>
-                    <option value="LOC">Localisation</option>
-                    <option value="EMAIL">Email</option>
-                    <option value="PHONE">Téléphone</option>
-                    <option value="DATE">Date</option>
-                    <option value="ADDRESS">Adresse</option>
-                    <option value="IBAN">IBAN</option>
-                    <option value="SIREN">SIREN</option>
-                    <option value="SIRET">SIRET</option>
-                </select>
-                <button onclick="addSelectionAsEntity()" 
-                        class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
-                    <i class="fas fa-plus mr-1"></i>Ajouter
-                </button>
-            </div>
-        </div>
-
-        <!-- Modals -->
-        <!-- Add Detection Modal -->
-        <div v-if="showDetectionModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
-            <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Ajouter une détection manuelle</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Type d'entité</label>
-                        <select v-model="newDetection.type" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                            <option value="">Sélectionnez un type</option>
-                            <option value="PERSON">Personne</option>
-                            <option value="ORG">Organisation</option>
-                            <option value="LOC">Localisation</option>
-                            <option value="EMAIL">Email</option>
-                            <option value="PHONE">Téléphone</option>
-                            <option value="DATE">Date</option>
-                            <option value="ADDRESS">Adresse</option>
-                            <option value="IBAN">IBAN</option>
-                            <option value="SIREN">SIREN</option>
-                            <option value="SIRET">SIRET</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Valeur à rechercher</label>
-                        <input v-model="newDetection.value" placeholder="Texte à anonymiser"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Remplacement (optionnel)</label>
-                        <input v-model="newDetection.replacement" :placeholder="`[${newDetection.type || 'TYPE'}]`"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    </div>
-                    <div v-if="totalPages > 1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Page (optionnel)</label>
-                        <input v-model.number="newDetection.page" type="number" :min="1" :max="totalPages"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    </div>
-                </div>
-                <div class="flex space-x-3 mt-6">
-                    <button @click="confirmDetection" :disabled="!newDetection.type || !newDetection.value"
-                            class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                        <i class="fas fa-plus mr-2"></i>Ajouter
-                    </button>
-                    <button @click="showDetectionModal = false"
-                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
-                        Annuler
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Create Group Modal -->
-        <div v-if="showGroupModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
-            <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Créer un nouveau groupe</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Nom du groupe</label>
-                        <input v-model="newGroupName" placeholder="Ex: Informations personnelles"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                               @keyup.enter="confirmGroup">
-                    </div>
-                    <div class="text-sm text-gray-600">
-                        <p>Les groupes permettent d'appliquer des règles d'anonymisation communes à plusieurs entités.</p>
-                    </div>
-                </div>
-                <div class="flex space-x-3 mt-6">
-                    <button @click="confirmGroup" :disabled="!newGroupName"
-                            class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                        <i class="fas fa-plus mr-2"></i>Créer
-                    </button>
-                    <button @click="showGroupModal = false"
-                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
-                        Annuler
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Export Options Modal -->
-        <div v-if="showExportModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
-            <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Options d'export</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Filigrane (optionnel)</label>
-                        <input v-model="watermark" placeholder="Document anonymisé"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                        <p class="text-xs text-gray-500 mt-1">Ajoute un filigrane sur le document</p>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" v-model="wantAudit" id="audit-checkbox" class="mr-2 rounded">
-                        <label for="audit-checkbox" class="text-sm text-gray-700">Inclure un rapport d'audit</label>
-                    </div>
-                    <div class="text-xs text-gray-600">
-                        <p><strong>Format de sortie :</strong> DOCX avec préservation complète de la mise en forme</p>
-                    </div>
-                </div>
-                <div class="flex space-x-3 mt-6">
-                    <button @click="exportWithOptions"
-                            class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        <i class="fas fa-download mr-2"></i>Exporter
-                    </button>
-                    <button @click="showExportModal = false"
-                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
-                        Annuler
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Toast Notifications -->
-        <div id="toast-container" class="fixed top-4 right-4 space-y-2 z-50"></div>
-    </div>
-
-    <!-- External Libraries -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <script src="https://unpkg.com/pinia@2/dist/pinia.iife.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://unpkg.com/docx-preview@0.4.1/dist/docx-preview.js"></script>
-    
-    <!-- Application Script -->
-    <script>
-        const { createApp, ref, onMounted, computed } = Vue;
-        const { createPinia, defineStore } = Pinia;
-        const jobId = new URLSearchParams(window.location.search).get('job_id');
-
-        if (!jobId) {
-            window.location.href = '/';
+<div id="app" class="flex flex-col h-screen">
+<header class="bg-white shadow-sm border-b">
+<div class="px-6 py-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-4">
+<button onclick="window.location.href='/'" class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+<i class="fas fa-arrow-left mr-2"></i>
+Retour
+</button>
+<div class="h-6 w-px bg-gray-300"></div>
+<h1 class="text-xl font-semibold text-gray-800">Interface d'anonymisation</h1>
+</div>
+<div class="flex items-center space-x-4">
+<div class="flex bg-gray-100 rounded-lg p-1">
+<button @click="changeView('original')" :class="['px-4 py-2 rounded-md transition-all', view === 'original' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900']">
+<i class="fas fa-file-alt mr-2"></i>Original
+</button>
+<button @click="changeView('anonymized')" :class="['px-4 py-2 rounded-md transition-all', view === 'anonymized' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900']">
+<i class="fas fa-shield-alt mr-2"></i>Anonymisé
+</button>
+</div>
+<div class="flex items-center space-x-2">
+<button @click="undo" :disabled="history.length === 0" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
+<i class="fas fa-undo"></i>
+</button>
+<button @click="redo" :disabled="future.length === 0" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
+<i class="fas fa-redo"></i>
+</button>
+<div class="h-6 w-px bg-gray-300"></div>
+<button @click="showDetectionModal = true" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+<i class="fas fa-plus mr-2"></i>Ajouter
+</button>
+</div>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<div class="flex-1 bg-white border-r">
+<div class="zoom-controls bg-white border-b p-4 flex items-center justify-between">
+<div class="flex items-center space-x-4">
+<div class="flex items-center space-x-2">
+<button @click="zoomOut" class="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100">
+<i class="fas fa-search-minus"></i>
+</button>
+<span class="text-sm text-gray-600 min-w-16 text-center">{{ Math.round(zoom * 100) }}%</span>
+<button @click="zoomIn" class="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100">
+<i class="fas fa-search-plus"></i>
+</button>
+</div>
+<div class="flex items-center space-x-2" v-if="totalPages > 1">
+<button @click="prevPage" :disabled="currentPage <= 1" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100">
+<i class="fas fa-chevron-left"></i>
+</button>
+<span class="text-sm text-gray-600">Page {{ currentPage }} / {{ totalPages }}</span>
+<button @click="nextPage" :disabled="currentPage >= totalPages" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100">
+<i class="fas fa-chevron-right"></i>
+</button>
+</div>
+</div>
+<div class="flex items-center space-x-6 text-sm text-gray-600">
+<div class="flex items-center">
+<i class="fas fa-tags mr-2 text-blue-600"></i>
+<span>{{ entities.length }} entités</span>
+</div>
+<div class="flex items-center" v-if="processingMode === 'ai'">
+<i class="fas fa-brain mr-2 text-purple-600"></i>
+<span>Mode IA</span>
+</div>
+<div class="flex items-center" v-else>
+<i class="fas fa-bolt mr-2 text-green-600"></i>
+<span>Mode Regex</span>
+</div>
+</div>
+</div>
+<div class="viewer-container overflow-auto p-6 bg-gray-50">
+<div id="viewer" class="mx-auto bg-white shadow-lg rounded-lg overflow-hidden" :style="{ transform: `scale(${zoom})`, transformOrigin: 'top center' }" @mouseup="onTextSelection">
+<div v-if="!status" class="flex items-center justify-center h-96">
+<div class="text-center">
+<i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+<p class="text-gray-600">Chargement du document...</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="w-96 bg-white sidebar overflow-hidden flex flex-col">
+<div class="border-b">
+<div class="flex">
+<button @click="activeTab = 'entities'" :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'entities' ? 'active' : 'text-gray-600 hover:text-gray-900']">
+<i class="fas fa-tags mr-2"></i>Entités
+</button>
+<button @click="activeTab = 'groups'" :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'groups' ? 'active' : 'text-gray-600 hover:text-gray-900']">
+<i class="fas fa-layer-group mr-2"></i>Groupes
+</button>
+<button @click="activeTab = 'search'" :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'search' ? 'active' : 'text-gray-600 hover:text-gray-900']">
+<i class="fas fa-search mr-2"></i>Recherche
+</button>
+<button @click="activeTab = 'rules'" :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'rules' ? 'active' : 'text-gray-600 hover:text-gray-900']">
+<i class="fas fa-cog mr-2"></i>Règles
+</button>
+</div>
+</div>
+<div class="flex-1 overflow-auto">
+<div v-if="activeTab === 'entities' " class="p-4">
+<div class="mb-4 space-y-3">
+<div class="flex space-x-2">
+<button @click="showDetectionModal = true" class="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+<i class="fas fa-plus mr-2"></i>Ajouter
+</button>
+<button @click="deleteSelected" :disabled="selected.length === 0" class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
+<i class="fas fa-trash mr-2"></i>Supprimer
+</button>
+</div>
+<div class="flex space-x-2" v-if="selected.length > 0">
+<select v-model="bulkGroup" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+<option value="">--Assigner au groupe--</option>
+<option v-for="grp in groupStore.items" :key="grp.id" :value="grp.id">{{ grp.name }}</option>
+</select>
+<button @click="groupSelected" :disabled="!bulkGroup" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
+<i class="fas fa-check"></i>
+</button>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex items-center mb-3">
+<input type="checkbox" @change="toggleAll($event)" :checked="selected.length === entities.length && entities.length > 0" class="mr-2 rounded">
+<span class="text-sm text-gray-600">
+<span v-if="selected.length > 0">{{ selected.length }} sélectionnée(s)</span>
+<span v-else>{{ entities.length }} entité(s)</span>
+</span>
+</div>
+<div v-for="(ent, idx) in entities" :key="ent.id" :class="['entity-row p-3 border border-gray-200 rounded-lg cursor-pointer', selected.includes(ent.id) ? 'selected' : '']" @click="toggleEntitySelection(ent.id)" draggable="true" @dragstart="dragStart(idx, $event)" @dragover.prevent @drop="drop(idx)">
+<div class="flex items-start space-x-3">
+<input type="checkbox" :checked="selected.includes(ent.id)" @click.stop @change="toggleEntitySelection(ent.id)" class="mt-1 rounded">
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-2">
+<span :class="['px-2 py-1 text-xs rounded-full font-medium', getEntityTypeClass(ent.type)]">{{ ent.type }}</span>
+<span v-if="ent.page" class="text-xs text-gray-500">Page {{ ent.page }}</span>
+</div>
+<div class="space-y-2">
+<div>
+<label class="block text-xs text-gray-600 mb-1">Valeur originale</label>
+<input v-model="ent.value" @change="updateEntity(ent)" class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
+</div>
+<div>
+<label class="block text-xs text-gray-600 mb-1">Remplacement</label>
+<input v-model="ent.replacement" @change="updateEntity(ent)" :placeholder="`[${ent.type}]`" class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
+</div>
+<div v-if="processingMode === 'ai' && ent.confidence !== null" class="flex items-center justify-between">
+<span class="text-xs text-gray-600">Confiance</span>
+<span class="text-xs font-medium" :class="ent.confidence >= 0.8 ? 'text-green-600' : ent.confidence >= 0.5 ? 'text-yellow-600' : 'text-red-600'">{{ (ent.confidence * 100).toFixed(0) }}%</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div v-if="entities.length === 0" class="text-center py-8 text-gray-500">
+<i class="fas fa-tags text-4xl mb-4 opacity-50"></i>
+<p>Aucune entité détectée</p>
+<button @click="showDetectionModal = true" class="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">Ajouter manuellement</button>
+</div>
+</div>
+</div>
+<div v-if="activeTab === 'groups'" class="p-4">
+<div class="mb-4">
+<button @click="showGroupModal = true" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+<i class="fas fa-plus mr-2"></i>Créer un groupe
+</button>
+</div>
+<div class="space-y-3">
+<div v-for="grp in groupStore.items" :key="grp.id" class="group-item p-4 border border-gray-200 rounded-lg" @dragover.prevent @drop="assignToGroup(grp.id, $event)">
+<div class="flex items-center justify-between mb-3">
+<h4 class="font-medium text-gray-800">{{ grp.name }}</h4>
+<div class="flex items-center space-x-2">
+<span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">{{ grp.entities.length }}</span>
+<button @click="deleteGroup(grp.id)" class="text-red-500 hover:text-red-700 text-sm"><i class="fas fa-trash"></i></button>
+</div>
+</div>
+<div class="text-sm text-gray-600 mb-2">Glissez-déposez des entités ici</div>
+<div class="space-y-1">
+<div v-for="entityId in grp.entities" :key="entityId" class="text-xs p-2 bg-gray-50 rounded border">
+<span v-if="getEntityById(entityId)">{{ getEntityById(entityId).value }}</span>
+<span v-else>Entité inconnue</span>
+<span class="text-gray-500 ml-2">(<span v-if="getEntityById(entityId)">{{ getEntityById(entityId).type }}</span><span v-else>?</span>)</span>
+</div>
+</div>
+</div>
+<div v-if="groupStore.items.length === 0" class="text-center py-8 text-gray-500">
+<i class="fas fa-layer-group text-4xl mb-4 opacity-50"></i>
+<p>Aucun groupe créé</p>
+<p class="text-sm mt-2">Les groupes permettent d'appliquer des règles communes à plusieurs entités</p>
+</div>
+</div>
+</div>
+<div v-if="activeTab === 'search'" class="p-4">
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 mb-2">Type de recherche</label>
+<select v-model="searchType" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+<option value="text">Texte simple</option>
+<option value="regex">Expression régulière</option>
+<option value="semantic">Recherche sémantique</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 mb-2">Terme de recherche</label>
+<div class="flex space-x-2">
+<input v-model="searchTerm" @keyup.enter="search" placeholder="Rechercher dans le document..." class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
+<button @click="search" :disabled="!searchTerm" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+<i class="fas fa-search"></i>
+</button>
+</div>
+</div>
+<div v-if="searchResults.length > 0">
+<h4 class="text-sm font-medium text-gray-700 mb-2">Résultats ({{ searchResults.length }})</h4>
+<div class="space-y-2 max-h-64 overflow-y-auto">
+<div v-for="(result, idx) in searchResults" :key="idx" class="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+<div class="text-sm font-medium text-gray-800 mb-1">{{ result.text }}</div>
+<div class="flex items-center justify-between">
+<span class="text-xs text-gray-500">Page {{ result.page || '?' }}</span>
+<button @click="addSearchResultAsEntity(result)" class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors">
+<i class="fas fa-plus mr-1"></i>Ajouter
+</button>
+</div>
+</div>
+</div>
+</div>
+<div v-if="searchHistory.length > 0">
+<h4 class="text-sm font-medium text-gray-700 mb-2">Historique</h4>
+<div class="space-y-1">
+<div v-for="(term, idx) in searchHistory" :key="idx" class="flex items-center justify-between p-2 bg-gray-50 rounded">
+<span class="text-sm text-gray-700">{{ term }}</span>
+<button @click="searchTerm = term; search()" class="text-blue-600 hover:text-blue-800 text-xs"><i class="fas fa-redo"></i></button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div v-if="activeTab === 'rules'" class="p-4">
+<div class="space-y-6">
+<div>
+<h3 class="text-lg font-medium text-gray-800 mb-3">Patterns Regex</h3>
+<div class="space-y-3">
+<div v-for="(rule, idx) in rules.regex_rules" :key="idx" class="p-3 border border-gray-200 rounded-lg">
+<div class="space-y-2">
+<div>
+<label class="block text-xs text-gray-600 mb-1">Pattern</label>
+<input v-model="rule.pattern" placeholder="Expression régulière" class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
+</div>
+<div class="flex space-x-2">
+<div class="flex-1">
+<label class="block text-xs text-gray-600 mb-1">Remplacement</label>
+<input v-model="rule.replacement" placeholder="Texte de remplacement" class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
+</div>
+<button @click="removeRegex(idx)" class="mt-5 px-2 py-1 text-red-600 hover:text-red-800 text-sm"><i class="fas fa-trash"></i></button>
+</div>
+</div>
+</div>
+<div class="p-3 border-2 border-dashed border-gray-300 rounded-lg">
+<div class="space-y-2">
+<input v-model="newRegex.pattern" placeholder="Nouveau pattern regex" class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
+<div class="flex space-x-2">
+<input v-model="newRegex.replacement" placeholder="Remplacement" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded">
+<button @click="addRegex" :disabled="!newRegex.pattern" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><i class="fas fa-plus"></i></button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div v-if="processingMode === 'ai'">
+<h3 class="text-lg font-medium text-gray-800 mb-3">Paramètres NER</h3>
+<div class="space-y-3">
+<div>
+<label class="block text-sm text-gray-600 mb-1">Modèle</label>
+<input v-model="rules.ner.model" placeholder="Nom du modèle Hugging Face" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+</div>
+<div>
+<label class="block text-sm text-gray-600 mb-1">Seuil de confiance</label>
+<input v-model.number="rules.ner.confidence" type="number" step="0.01" min="0" max="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+</div>
+</div>
+</div>
+<div>
+<h3 class="text-lg font-medium text-gray-800 mb-3">Styles d'anonymisation</h3>
+<div class="space-y-3">
+<div v-for="(style, type) in rules.styles" :key="type" class="flex items-center space-x-2">
+<span class="text-sm text-gray-600 w-20">{{ type }}</span>
+<input v-model="rules.styles[type]" :placeholder="`Style pour ${type}`" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded">
+<button @click="removeStyle(type)" class="px-2 py-1 text-red-600 hover:text-red-800 text-sm"><i class="fas fa-trash"></i></button>
+</div>
+<div class="flex space-x-2">
+<input v-model="newStyle.type" placeholder="Type d'entité" class="w-24 px-2 py-1 text-sm border border-gray-300 rounded">
+<input v-model="newStyle.style" placeholder="Style de remplacement" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded">
+<button @click="addStyle" :disabled="!newStyle.type || !newStyle.style" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><i class="fas fa-plus"></i></button>
+</div>
+</div>
+</div>
+<div class="pt-4 border-t">
+<button @click="saveRules" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+<i class="fas fa-save mr-2"></i>Enregistrer les règles
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<footer class="bg-white border-t px-6 py-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-6 text-sm text-gray-600">
+<div class="flex items-center">
+<i class="fas fa-tags mr-2 text-blue-600"></i>
+<span>{{ entities.length }} entités totales</span>
+</div>
+<div class="flex items-center" v-if="selected.length > 0">
+<i class="fas fa-check-square mr-2 text-green-600"></i>
+<span>{{ selected.length }} sélectionnées</span>
+</div>
+<div class="flex items-center" v-if="groupStore.items.length > 0">
+<i class="fas fa-layer-group mr-2 text-purple-600"></i>
+<span>{{ groupStore.items.length }} groupes</span>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button @click="showExportModal = true" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+<i class="fas fa-cog mr-2"></i>Options d'export
+</button>
+<button @click="exportDoc" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+<i class="fas fa-download mr-2"></i>Télécharger DOCX anonymisé
+</button>
+</div>
+</div>
+</footer>
+<div id="floating-selection" class="floating-selection">
+<div class="flex space-x-2">
+<select id="entity-type-select" class="px-2 py-1 text-sm border border-gray-300 rounded">
+<option value="PERSON">Personne</option>
+<option value="ORG">Organisation</option>
+<option value="LOC">Localisation</option>
+<option value="EMAIL">Email</option>
+<option value="PHONE">Téléphone</option>
+<option value="DATE">Date</option>
+<option value="ADDRESS">Adresse</option>
+<option value="IBAN">IBAN</option>
+<option value="SIREN">SIREN</option>
+<option value="SIRET">SIRET</option>
+</select>
+<button onclick="addSelectionAsEntity()" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
+<i class="fas fa-plus mr-1"></i>Ajouter
+</button>
+</div>
+</div>
+<div v-if="showDetectionModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
+<div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+<h3 class="text-lg font-semibold text-gray-800 mb-4">Ajouter une détection manuelle</h3>
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 mb-1">Type d'entité</label>
+<select v-model="newDetection.type" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+<option value="">Sélectionnez un type</option>
+<option value="PERSON">Personne</option>
+<option value="ORG">Organisation</option>
+<option value="LOC">Localisation</option>
+<option value="EMAIL">Email</option>
+<option value="PHONE">Téléphone</option>
+<option value="DATE">Date</option>
+<option value="ADDRESS">Adresse</option>
+<option value="IBAN">IBAN</option>
+<option value="SIREN">SIREN</option>
+<option value="SIRET">SIRET</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 mb-1">Valeur à rechercher</label>
+<input v-model="newDetection.value" placeholder="Texte à anonymiser" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 mb-1">Remplacement (optionnel)</label>
+<input v-model="newDetection.replacement" :placeholder="`[${newDetection.type || 'TYPE'}]`" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+</div>
+<div v-if="totalPages > 1">
+<label class="block text-sm font-medium text-gray-700 mb-1">Page (optionnel)</label>
+<input v-model.number="newDetection.page" type="number" :min="1" :max="totalPages" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+</div>
+</div>
+<div class="flex space-x-3 mt-6">
+<button @click="confirmDetection" :disabled="!newDetection.type || !newDetection.value" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+<i class="fas fa-plus mr-2"></i>Ajouter
+</button>
+<button @click="showDetectionModal = false" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">Annuler</button>
+</div>
+</div>
+</div>
+<div v-if="showGroupModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
+<div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+<h3 class="text-lg font-semibold text-gray-800 mb-4">Créer un nouveau groupe</h3>
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 mb-1">Nom du groupe</label>
+<input v-model="newGroupName" placeholder="Ex: Informations personnelles" class="w-full px-3 py-2 border border-gray-300 rounded-lg" @keyup.enter="confirmGroup">
+</div>
+<div class="text-sm text-gray-600">
+<p>Les groupes permettent d'appliquer des règles d'anonymisation communes à plusieurs entités.</p>
+</div>
+</div>
+<div class="flex space-x-3 mt-6">
+<button @click="confirmGroup" :disabled="!newGroupName" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+<i class="fas fa-plus mr-2"></i>Créer
+</button>
+<button @click="showGroupModal = false" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">Annuler</button>
+</div>
+</div>
+</div>
+<div v-if="showExportModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
+<div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+<h3 class="text-lg font-semibold text-gray-800 mb-4">Options d'export</h3>
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 mb-1">Filigrane (optionnel)</label>
+<input v-model="watermark" placeholder="Document anonymisé" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+<p class="text-xs text-gray-500 mt-1">Ajoute un filigrane sur le document</p>
+</div>
+<div class="flex items-center">
+<input type="checkbox" v-model="wantAudit" id="audit-checkbox" class="mr-2 rounded">
+<label for="audit-checkbox" class="text-sm text-gray-700">Inclure un rapport d'audit</label>
+</div>
+<div class="text-xs text-gray-600">
+<p><strong>Format de sortie :</strong> DOCX avec préservation complète de la mise en forme</p>
+</div>
+</div>
+<div class="flex space-x-3 mt-6">
+<button @click="exportWithOptions" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+<i class="fas fa-download mr-2"></i>Exporter
+</button>
+<button @click="showExportModal = false" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">Annuler</button>
+</div>
+</div>
+</div>
+<div id="toast-container" class="fixed top-4 right-4 space-y-2 z-50"></div>
+</div>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://unpkg.com/pinia@2/dist/pinia.iife.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/docx-preview@0.4.1/dist/docx-preview.js"></script>
+<script>
+const { createApp, ref, onMounted, computed } = Vue;
+const { createPinia, defineStore } = Pinia;
+const jobId = new URLSearchParams(window.location.search).get('job_id');
+if (!jobId) { window.location.href = '/'; }
+const useEntityStore = defineStore('entities', {
+  state: () => ({ items: [] }),
+  actions: {
+    async fetch() {
+      try {
+        const res = await fetch(`/entities/${jobId}`);
+        if (res.ok) {
+          this.items = (await res.json()).map(e => ({ replacement:'', page:null, confidence:null, ...e }));
         }
-
-        // Store definitions
-        const useEntityStore = defineStore('entities', {
-            state: () => ({ items: [] }),
-            actions: {
-                async fetch() {
-                    try {
-                        const res = await fetch(`/entities/${jobId}`);
-                        if (res.ok) {
-                            this.items = (await res.json()).map((e) => ({
-                                replacement: '',
-                                page: null,
-                                confidence: null,
-                                ...e,
-                            }));
-                        }
-                    } catch (error) {
-                        console.error('Error fetching entities:', error);
-                    }
-                },
-                async add(entity) {
-                    try {
-                        const res = await fetch(`/entities/${jobId}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(entity),
-                        });
-                        if (res.ok) {
-                            this.items.push(await res.json());
-                            showToast('Entité ajoutée avec succès', 'success');
-                        }
-                    } catch (error) {
-                        console.error('Error adding entity:', error);
-                        showToast('Erreur lors de l\'ajout de l\'entité', 'error');
-                    }
-                },
-                async update(entity) {
-                    try {
-                        await fetch(`/entities/${jobId}/${entity.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(entity),
-                        });
-                    } catch (error) {
-                        console.error('Error updating entity:', error);
-                    }
-                },
-                async remove(id) {
-                    try {
-                        await fetch(`/entities/${jobId}/${id}`, { method: 'DELETE' });
-                        this.items = this.items.filter((e) => e.id !== id);
-                        showToast('Entité supprimée', 'success');
-                    } catch (error) {
-                        console.error('Error removing entity:', error);
-                        showToast('Erreur lors de la suppression', 'error');
-                    }
-                },
-                reorder(from, to) {
-                    this.items.splice(to, 0, this.items.splice(from, 1)[0]);
-                },
-            },
-        });
-
-        const useGroupStore = defineStore('groups', {
-            state: () => ({ items: [] }),
-            actions: {
-                async fetch() {
-                    try {
-                        const res = await fetch(`/groups/${jobId}`);
-                        if (res.ok) {
-                            this.items = await res.json();
-                        }
-                    } catch (error) {
-                        console.error('Error fetching groups:', error);
-                    }
-                },
-                async add(group) {
-                    try {
-                        const res = await fetch(`/groups/${jobId}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(group),
-                        });
-                        if (res.ok) {
-                            this.items.push(await res.json());
-                            showToast('Groupe créé avec succès', 'success');
-                        }
-                    } catch (error) {
-                        console.error('Error adding group:', error);
-                        showToast('Erreur lors de la création du groupe', 'error');
-                    }
-                },
-                async remove(id) {
-                    try {
-                        await fetch(`/groups/${jobId}/${id}`, { method: 'DELETE' });
-                        this.items = this.items.filter((g) => g.id !== id);
-                        showToast('Groupe supprimé', 'success');
-                    } catch (error) {
-                        console.error('Error removing group:', error);
-                        showToast('Erreur lors de la suppression du groupe', 'error');
-                    }
-                },
-                async assign(entityId, groupId) {
-                    try {
-                        const res = await fetch(`/groups/${jobId}/${groupId}/entities/${entityId}`, { method: 'POST' });
-                        if (res.ok) {
-                            const updated = await res.json();
-                            const idx = this.items.findIndex((g) => g.id === updated.id);
-                            if (idx !== -1) this.items[idx] = updated;
-                            showToast('Entité assignée au groupe', 'success');
-                        }
-                    } catch (error) {
-                        console.error('Error assigning entity to group:', error);
-                        showToast('Erreur lors de l\'assignation', 'error');
-                    }
-                },
-            },
-        });
-
-        const pinia = createPinia();
-
-        // Toast notification system
-        function showToast(message, type = 'info') {
-            const toast = document.createElement('div');
-            const iconClass = type === 'success' ? 'fa-check-circle text-green-600' : 
-                             type === 'error' ? 'fa-exclamation-triangle text-red-600' : 
-                             'fa-info-circle text-blue-600';
-            const bgClass = type === 'success' ? 'bg-green-50 border-green-200' :
-                           type === 'error' ? 'bg-red-50 border-red-200' :
-                           'bg-blue-50 border-blue-200';
-
-            toast.className = `toast p-4 rounded-lg border ${bgClass} shadow-lg max-w-sm`;
-            toast.innerHTML = `
-                <div class="flex items-center">
-                    <i class="fas ${iconClass} mr-3"></i>
-                    <span class="text-gray-800">${message}</span>
-                    <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            `;
-
-            document.getElementById('toast-container').appendChild(toast);
-            setTimeout(() => {
-                if (toast.parentNode) {
-                    toast.remove();
-                }
-            }, 5000);
+      } catch(e) {}
+    },
+    async add(entity) {
+      try {
+        const res = await fetch(`/entities/${jobId}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entity) });
+        if (res.ok) { this.items.push(await res.json()); showToast('Entité ajoutée avec succès','success'); }
+      } catch(e) { showToast('Erreur lors de l\'ajout de l\'entité','error'); }
+    },
+    async update(entity) {
+      try { await fetch(`/entities/${jobId}/${entity.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entity) }); } catch(e) {}
+    },
+    async remove(id) {
+      try { await fetch(`/entities/${jobId}/${id}`, { method:'DELETE' }); this.items = this.items.filter(e=>e.id!==id); showToast('Entité supprimée','success'); } catch(e) { showToast('Erreur lors de la suppression','error'); }
+    },
+    reorder(from, to) { this.items.splice(to,0,this.items.splice(from,1)[0]); }
+  }
+});
+const useGroupStore = defineStore('groups', {
+  state: () => ({ items: [] }),
+  actions: {
+    async fetch() { try { const res = await fetch(`/groups/${jobId}`); if (res.ok) { this.items = await res.json(); } } catch(e) {} },
+    async add(group) {
+      try { const res = await fetch(`/groups/${jobId}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(group) });
+        if (res.ok) { this.items.push(await res.json()); showToast('Groupe créé avec succès','success'); }
+      } catch(e) { showToast('Erreur lors de la création du groupe','error'); }
+    },
+    async remove(id) {
+      try { await fetch(`/groups/${jobId}/${id}`, { method:'DELETE' }); this.items = this.items.filter(g=>g.id!==id); showToast('Groupe supprimé','success'); }
+      catch(e) { showToast('Erreur lors de la suppression du groupe','error'); }
+    },
+    async assign(entityId, groupId) {
+      try {
+        const res = await fetch(`/groups/${jobId}/${groupId}/entities/${entityId}`, { method:'POST' });
+        if (res.ok) {
+          const updated = await res.json();
+          const idx = this.items.findIndex(g=>g.id===updated.id);
+          if (idx!==-1) this.items[idx]=updated;
+          showToast('Entité assignée au groupe','success');
         }
-
-        // Entity type styling
-        function getEntityTypeClass(type) {
-            const classes = {
-                EMAIL: 'bg-blue-100 text-blue-800',
-                PHONE: 'bg-green-100 text-green-800',
-                DATE: 'bg-purple-100 text-purple-800',
-                ADDRESS: 'bg-red-100 text-red-800',
-                PERSON: 'bg-indigo-100 text-indigo-800',
-                ORG: 'bg-yellow-100 text-yellow-800',
-                LOC: 'bg-pink-100 text-pink-800',
-                IBAN: 'bg-gray-100 text-gray-800',
-                SIREN: 'bg-orange-100 text-orange-800',
-                SIRET: 'bg-teal-100 text-teal-800'
-            };
-            return classes[type] || 'bg-gray-100 text-gray-800';
+      } catch(e) { showToast('Erreur lors de l\'assignation','error'); }
+    }
+  }
+});
+const pinia = createPinia();
+function showToast(message,type='info'){
+  const toast=document.createElement('div');
+  const iconClass=type==='success'?'fa-check-circle text-green-600':type==='error'?'fa-exclamation-triangle text-red-600':'fa-info-circle text-blue-600';
+  const bgClass=type==='success'?'bg-green-50 border-green-200':type==='error'?'bg-red-50 border-red-200':'bg-blue-50 border-blue-200';
+  toast.className=`toast p-4 rounded-lg border ${bgClass} shadow-lg max-w-sm`;
+  toast.innerHTML=`<div class="flex items-center"><i class="fas ${iconClass} mr-3"></i><span class="text-gray-800">${message}</span><button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button></div>`;
+  document.getElementById('toast-container').appendChild(toast);
+  setTimeout(()=>{ if(toast.parentNode){ toast.remove(); } },5000);
+}
+function mapEntityTypeClass(type){
+  const classes={EMAIL:'bg-blue-100 text-blue-800',PHONE:'bg-green-100 text-green-800',DATE:'bg-purple-100 text-purple-800',ADDRESS:'bg-red-100 text-red-800',PERSON:'bg-indigo-100 text-indigo-800',ORG:'bg-yellow-100 text-yellow-800',LOC:'bg-pink-100 text-pink-800',IBAN:'bg-gray-100 text-gray-800',SIREN:'bg-orange-100 text-orange-800',SIRET:'bg-teal-100 text-teal-800'};
+  return classes[type]||'bg-gray-100 text-gray-800';
+}
+let selectedText=''; let selectionRange=null;
+function handleTextSelectionGlobal(){
+  const selection=window.getSelection();
+  if(selection.toString().trim()){
+    selectedText=selection.toString().trim();
+    selectionRange=selection.getRangeAt(0);
+    showFloatingMenu(selection);
+  } else { hideFloatingMenu(); }
+}
+function showFloatingMenu(selection){
+  const rect=selection.getRangeAt(0).getBoundingClientRect();
+  const menu=document.getElementById('floating-selection');
+  menu.style.left=`${rect.left+window.scrollX}px`;
+  menu.style.top=`${rect.bottom+window.scrollY+5}px`;
+  menu.classList.add('show');
+}
+function hideFloatingMenu(){ document.getElementById('floating-selection').classList.remove('show'); }
+function addSelectionAsEntity(){
+  const entityType=document.getElementById('entity-type-select').value;
+  if(selectedText&&entityType){
+    window.__stores?.entityStore?.add({ id:crypto.randomUUID(), type:entityType, value:selectedText, replacement:'', start:0, end:0, page:1 });
+    hideFloatingMenu();
+    window.getSelection().removeAllRanges();
+  }
+}
+createApp({
+  setup(){
+    const status=ref(null);
+    const processingMode=ref('regex');
+    const entitiesDetected=ref(0);
+    const eta=ref(null);
+    const view=ref('anonymized');
+    const docType=ref('');
+    const zoom=ref(1);
+    const currentPage=ref(1);
+    const totalPages=ref(1);
+    const activeTab=ref('entities');
+    const searchTerm=ref('');
+    const searchType=ref('text');
+    const searchResults=ref([]);
+    const searchHistory=ref([]);
+    const selected=ref([]);
+    const bulkGroup=ref('');
+    const dragIndex=ref(null);
+    const showDetectionModal=ref(false);
+    const showGroupModal=ref(false);
+    const showExportModal=ref(false);
+    const newDetection=ref({ type:'', value:'', replacement:'', page:null, confidence:null });
+    const newGroupName=ref('');
+    const watermark=ref('');
+    const wantAudit=ref(false);
+    const rules=ref({ regex_rules:[], ner:{ confidence:0.5 }, styles:{} });
+    const newRegex=ref({ pattern:'', replacement:'' });
+    const newStyle=ref({ type:'', style:'' });
+    const history=ref([]);
+    const future=ref([]);
+    const entityStore=useEntityStore();
+    const groupStore=useGroupStore();
+    const entities=computed(()=>entityStore.items);
+    const clearViewer=()=>{ const c=document.getElementById('viewer'); c.innerHTML=''; };
+    const showPage=(num)=>{ document.querySelectorAll('.pdf-page').forEach((el,idx)=>{ el.style.display=idx+1===num?'block':'none'; }); };
+    const renderPdfPages=async(url)=>{
+      try{
+        pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const loadingTask=pdfjsLib.getDocument(url);
+        const pdf=await loadingTask.promise;
+        totalPages.value=pdf.numPages;
+        const container=document.getElementById('viewer');
+        for(let i=1;i<=pdf.numPages;i++){
+          const page=await pdf.getPage(i);
+          const viewport=page.getViewport({ scale:1.5 });
+          const canvas=document.createElement('canvas');
+          const ctx=canvas.getContext('2d');
+          canvas.height=viewport.height; canvas.width=viewport.width;
+          const pageDiv=document.createElement('div');
+          pageDiv.className='pdf-page';
+          pageDiv.dataset.page=i;
+          if(i!==currentPage.value) pageDiv.style.display='none';
+          pageDiv.appendChild(canvas);
+          container.appendChild(pageDiv);
+          await page.render({ canvasContext:ctx, viewport }).promise;
         }
-
-        // Global selection handling
-        let selectedText = '';
-        let selectionRange = null;
-
-        function handleTextSelection() {
-            const selection = window.getSelection();
-            if (selection.toString().trim()) {
-                selectedText = selection.toString().trim();
-                selectionRange = selection.getRangeAt(0);
-                showFloatingMenu(selection);
-            } else {
-                hideFloatingMenu();
-            }
+        showPage(currentPage.value);
+      }catch(e){ showToast('Erreur lors du rendu du PDF','error'); }
+    };
+    const highlightPdfEntities=()=>{
+      if(!status.value||!status.value.entities) return false;
+      let hasCoords=false;
+      status.value.entities.forEach(ent=>{
+        const { page,x,y,width,height }=ent;
+        if(page===undefined||x===undefined||y===undefined||width===undefined||height===undefined) return;
+        hasCoords=true;
+        const pageDiv=document.querySelector(`.pdf-page[data-page='${page}']`);
+        if(!pageDiv) return;
+        const box=document.createElement('div');
+        box.className='pdf-highlight';
+        box.style.left=`${Number(x)}px`;
+        box.style.top=`${Number(y)}px`;
+        box.style.width=`${Number(width)}px`;
+        box.style.height=`${Number(height)}px`;
+        box.title=`${ent.type}: ${ent.value}`;
+        pageDiv.appendChild(box);
+      });
+      return hasCoords;
+    };
+    const renderDoc=async()=>{
+      if(!status.value) return;
+      const prev=currentPage.value;
+      clearViewer();
+      try{
+        if(docType.value==='pdf'){
+          currentPage.value=prev;
+          const url=view.value==='original' ? status.value.original_url : (status.value.anonymized_url||status.value.original_url);
+          await renderPdfPages(url);
+          if(view.value==='anonymized'){ highlightPdfEntities(); }
+        } else if(docType.value==='docx'){
+          const url=view.value==='original' ? status.value.original_url : status.value.anonymized_url;
+          const buffer=await fetch(url).then(r=>r.arrayBuffer());
+          const container=document.getElementById('viewer');
+          await docx.renderAsync(buffer, container);
+          applyEntitySpans();
         }
-
-        function showFloatingMenu(selection) {
-            const rect = selection.getRangeAt(0).getBoundingClientRect();
-            const menu = document.getElementById('floating-selection');
-            menu.style.left = `${rect.left + window.scrollX}px`;
-            menu.style.top = `${rect.bottom + window.scrollY + 5}px`;
-            menu.classList.add('show');
+      }catch(e){ showToast('Erreur lors du rendu du document','error'); }
+    };
+    const applyEntitySpans=()=>{
+      const container=document.getElementById('viewer');
+      const walker=document.createTreeWalker(container,NodeFilter.SHOW_TEXT);
+      const re=/\[[A-Z_]+\]/g;
+      const nodes=[]; let n;
+      while((n=walker.nextNode())) nodes.push(n);
+      nodes.forEach(node=>{
+        const text=node.textContent;
+        if(!re.test(text)) return;
+        const frag=document.createDocumentFragment();
+        let last=0; re.lastIndex=0; let m;
+        while((m=re.exec(text))){
+          const before=text.slice(last,m.index);
+          if(before) frag.appendChild(document.createTextNode(before));
+          const span=document.createElement('span');
+          span.textContent=m[0];
+          span.className='entity-highlight';
+          span.dataset.entityType=m[0].slice(1,-1);
+          span.title=`Entité anonymisée: ${m[0]}`;
+          frag.appendChild(span);
+          last=m.index+m[0].length;
         }
-
-        function hideFloatingMenu() {
-            document.getElementById('floating-selection').classList.remove('show');
+        const after=text.slice(last);
+        if(after) frag.appendChild(document.createTextNode(after));
+        node.parentNode.replaceChild(frag,node);
+      });
+    };
+    const saveState=()=>{
+      history.value.push({ entities:JSON.parse(JSON.stringify(entityStore.items)), groups:JSON.parse(JSON.stringify(groupStore.items)) });
+      future.value=[];
+      if(history.value.length>50) history.value.shift();
+    };
+    const undo=()=>{
+      if(!history.value.length) return;
+      future.value.push({ entities:JSON.parse(JSON.stringify(entityStore.items)), groups:JSON.parse(JSON.stringify(groupStore.items)) });
+      const prev=history.value.pop();
+      entityStore.items=prev.entities;
+      groupStore.items=prev.groups;
+      showToast('Action annulée','info');
+    };
+    const redo=()=>{
+      if(!future.value.length) return;
+      history.value.push({ entities:JSON.parse(JSON.stringify(entityStore.items)), groups:JSON.parse(JSON.stringify(groupStore.items)) });
+      const next=future.value.pop();
+      entityStore.items=next.entities;
+      groupStore.items=next.groups;
+      showToast('Action rétablie','info');
+    };
+    const loadStatus=async()=>{
+      if(!jobId) return;
+      try{
+        const res=await fetch(`/status/${jobId}`);
+        if(!res.ok) throw new Error('Job not found');
+        const data=await res.json();
+        status.value=data.result;
+        processingMode.value=data.mode||'regex';
+        entitiesDetected.value=data.entities_detected||0;
+        eta.value=data.eta;
+        if(data.result){
+          entityStore.items=(data.result.entities||[]).map(e=>({ replacement:'', page:null, confidence:null, ...e }));
+          docType.value=data.result.filename.split('.').pop().toLowerCase();
+          await renderDoc();
         }
-
-        function addSelectionAsEntity() {
-            const entityType = document.getElementById('entity-type-select').value;
-            if (selectedText && entityType) {
-                // Get Vue app instance from the mounted component
-                const appInstance = document.getElementById('app').__vue_app__;
-                if (appInstance) {
-                    const entityStore = appInstance._instance.provides.pinia.state.value.entities;
-                    entityStore.add({
-                        id: crypto.randomUUID(),
-                        type: entityType,
-                        value: selectedText,
-                        replacement: '',
-                        start: 0,
-                        end: 0,
-                        page: 1
-                    });
-                }
-                hideFloatingMenu();
-                window.getSelection().removeAllRanges();
-            }
+      }catch(e){
+        showToast('Erreur lors du chargement du document','error');
+        setTimeout(()=>{ window.location.href='/'; },3000);
+      }
+    };
+    const fetchRules=async()=>{
+      try{ const res=await fetch('/rules'); if(res.ok){ rules.value=await res.json(); } }catch(e){}
+    };
+    const changeView=async(v)=>{ view.value=v; await renderDoc(); };
+    const zoomIn=()=>{ zoom.value=Math.min(3, zoom.value+0.1); };
+    const zoomOut=()=>{ zoom.value=Math.max(0.3, zoom.value-0.1); };
+    const nextPage=()=>{ if(currentPage.value<totalPages.value){ currentPage.value+=1; showPage(currentPage.value); } };
+    const prevPage=()=>{ if(currentPage.value>1){ currentPage.value-=1; showPage(currentPage.value); } };
+    const toggleEntitySelection=(id)=>{ const i=selected.value.indexOf(id); if(i>-1){ selected.value.splice(i,1); } else { selected.value.push(id); } };
+    const toggleAll=(e)=>{ if(e.target.checked){ selected.value=entityStore.items.map(ent=>ent.id); } else { selected.value=[]; } };
+    const updateEntity=async(ent)=>{ saveState(); await entityStore.update(ent); };
+    const deleteSelected=async()=>{ if(!selected.value.length) return; saveState(); for(const id of selected.value){ await entityStore.remove(id); } selected.value=[]; };
+    const confirmDetection=async()=>{
+      if(!newDetection.value.type||!newDetection.value.value) return;
+      saveState();
+      await entityStore.add({ id:crypto.randomUUID(), type:newDetection.value.type, value:newDetection.value.value, replacement:newDetection.value.replacement||'', page:newDetection.value.page??currentPage.value, confidence:newDetection.value.confidence, start:0, end:0 });
+      newDetection.value={ type:'', value:'', replacement:'', page:null, confidence:null };
+      showDetectionModal.value=false;
+    };
+    const confirmGroup=async()=>{
+      if(!newGroupName.value) return;
+      saveState();
+      await groupStore.add({ id:crypto.randomUUID(), name:newGroupName.value, entities:[] });
+      newGroupName.value=''; showGroupModal.value=false;
+    };
+    const deleteGroup=async(id)=>{ saveState(); await groupStore.remove(id); };
+    const groupSelected=async()=>{
+      if(!bulkGroup.value||!selected.value.length) return;
+      saveState();
+      for(const id of selected.value){ await groupStore.assign(id, bulkGroup.value); }
+      selected.value=[]; bulkGroup.value='';
+    };
+    const assignToGroup=async(groupId,evt)=>{
+      const entId=evt.dataTransfer.getData('text/plain');
+      if(entId){ saveState(); await groupStore.assign(entId, groupId); }
+    };
+    const dragStart=(idx,evt)=>{ dragIndex.value=idx; evt.dataTransfer.setData('text/plain', entityStore.items[idx].id); };
+    const drop=(idx)=>{ if(dragIndex.value===null) return; saveState(); entityStore.reorder(dragIndex.value, idx); dragIndex.value=null; };
+    const search=async()=>{
+      if(!searchTerm.value) return;
+      if(!searchHistory.value.includes(searchTerm.value)){ searchHistory.value.unshift(searchTerm.value); if(searchHistory.value.length>10){ searchHistory.value.pop(); } }
+      try{
+        if(searchType.value==='semantic'){
+          const res=await fetch(`/semantic-search/${jobId}?q=${encodeURIComponent(searchTerm.value)}`);
+          if(res.ok){ const data=await res.json(); searchResults.value=data.matches.map(m=>({ text:m, page:null })); }
+        } else {
+          const container=document.getElementById('viewer');
+          const text=container.textContent||'';
+          const regex = searchType.value==='regex'
+            ? new RegExp(searchTerm.value,'gi')
+            : new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
+          const matches=[]; let match;
+          while((match=regex.exec(text))!==null){
+            matches.push({ text:match[0], page:currentPage.value, start:match.index, end:match.index+match[0].length });
+            if(matches.length>=50) break;
+          }
+          searchResults.value=matches;
         }
-
-        // Main Vue App
-        createApp({
-            setup() {
-                const status = ref(null);
-                const processingMode = ref('regex');
-                const entitiesDetected = ref(0);
-                const eta = ref(null);
-                const view = ref('anonymized');
-                const docType = ref('');
-                const zoom = ref(1);
-                const currentPage = ref(1);
-                const totalPages = ref(1);
-                const activeTab = ref('entities');
-                const searchTerm = ref('');
-                const searchType = ref('text');
-                const searchResults = ref([]);
-                const searchHistory = ref([]);
-                const selected = ref([]);
-                const bulkGroup = ref('');
-                const dragIndex = ref(null);
-
-                // Modal states
-                const showDetectionModal = ref(false);
-                const showGroupModal = ref(false);
-                const showExportModal = ref(false);
-
-                // Form data
-                const newDetection = ref({ type: '', value: '', replacement: '', page: null, confidence: null });
-                const newGroupName = ref('');
-                const watermark = ref('');
-                const wantAudit = ref(false);
-
-                // Rules
-                const rules = ref({ regex_rules: [], ner: { confidence: 0.5 }, styles: {} });
-                const newRegex = ref({ pattern: '', replacement: '' });
-                const newStyle = ref({ type: '', style: '' });
-
-                // History for undo/redo
-                const history = ref([]);
-                const future = ref([]);
-
-                // Store instances
-                const entityStore = useEntityStore();
-                const groupStore = useGroupStore();
-                const entities = computed(() => entityStore.items);
-
-                // Document rendering functions
-                const clearViewer = () => {
-                    const container = document.getElementById('viewer');
-                    container.innerHTML = '';
-                };
-
-                const applyZoom = () => {
-                    // Zoom is handled by CSS transform in template
-                };
-
-                const showPage = (num) => {
-                    document.querySelectorAll('.pdf-page').forEach((el, idx) => {
-                        el.style.display = idx + 1 === num ? 'block' : 'none';
-                    });
-                };
-
-                const renderPdfPages = async (url) => {
-                    try {
-                        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                        const loadingTask = pdfjsLib.getDocument(url);
-                        const pdf = await loadingTask.promise;
-                        totalPages.value = pdf.numPages;
-                        const container = document.getElementById('viewer');
-                        
-                        for (let i = 1; i <= pdf.numPages; i++) {
-                            const page = await pdf.getPage(i);
-                            const viewport = page.getViewport({ scale: 1.5 });
-                            const canvas = document.createElement('canvas');
-                            const ctx = canvas.getContext('2d');
-                            canvas.height = viewport.height;
-                            canvas.width = viewport.width;
-                            
-                            const pageDiv = document.createElement('div');
-                            pageDiv.className = 'pdf-page';
-                            pageDiv.dataset.page = i;
-                            if (i !== currentPage.value) pageDiv.style.display = 'none';
-                            pageDiv.appendChild(canvas);
-                            container.appendChild(pageDiv);
-                            
-                            await page.render({ canvasContext: ctx, viewport }).promise;
-                        }
-                        showPage(currentPage.value);
-                    } catch (error) {
-                        console.error('Error rendering PDF:', error);
-                        showToast('Erreur lors du rendu du PDF', 'error');
-                    }
-                };
-
-                const highlightPdfEntities = () => {
-                    if (!status.value || !status.value.entities) return false;
-                    let hasCoords = false;
-                    status.value.entities.forEach((ent) => {
-                        const { page, x, y, width, height } = ent;
-                        if (page === undefined || x === undefined || y === undefined || 
-                            width === undefined || height === undefined) return;
-                        
-                        hasCoords = true;
-                        const pageDiv = document.querySelector(`.pdf-page[data-page='${page}']`);
-                        if (!pageDiv) return;
-                        
-                        const box = document.createElement('div');
-                        box.className = 'pdf-highlight';
-                        box.style.left = `${Number(x)}px`;
-                        box.style.top = `${Number(y)}px`;
-                        box.style.width = `${Number(width)}px`;
-                        box.style.height = `${Number(height)}px`;
-                        box.title = `${ent.type}: ${ent.value}`;
-                        pageDiv.appendChild(box);
-                    });
-                    return hasCoords;
-                };
-
-                const renderDoc = async () => {
-                    if (!status.value) return;
-                    
-                    const prev = currentPage.value;
-                    clearViewer();
-                    
-                    try {
-                        if (docType.value === 'pdf') {
-                            currentPage.value = prev;
-                            const url = view.value === 'original' ? 
-                                status.value.original_url : 
-                                status.value.anonymized_url || status.value.original_url;
-                            await renderPdfPages(url);
-                            if (view.value === 'anonymized') {
-                                highlightPdfEntities();
-                            }
-                        } else if (docType.value === 'docx') {
-                            const url = view.value === 'original' ? 
-                                status.value.original_url : 
-                                status.value.anonymized_url;
-                            const buffer = await fetch(url).then((r) => r.arrayBuffer());
-                            const container = document.getElementById('viewer');
-                            await docx.renderAsync(buffer, container);
-                            applyEntitySpans();
-                        }
-                    } catch (error) {
-                        console.error('Error rendering document:', error);
-                        showToast('Erreur lors du rendu du document', 'error');
-                    }
-                };
-
-                const applyEntitySpans = () => {
-                    const container = document.getElementById('viewer');
-                    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-                    const re = /\[[A-Z_]+\]/g;
-                    const nodes = [];
-                    let n;
-                    while ((n = walker.nextNode())) nodes.push(n);
-                    
-                    nodes.forEach((node) => {
-                        const text = node.textContent;
-                        if (!re.test(text)) return;
-                        
-                        const frag = document.createDocumentFragment();
-                        let last = 0;
-                        re.lastIndex = 0;
-                        let m;
-                        while ((m = re.exec(text))) {
-                            const before = text.slice(last, m.index);
-                            if (before) frag.appendChild(document.createTextNode(before));
-                            
-                            const span = document.createElement('span');
-                            span.textContent = m[0];
-                            span.className = 'entity-highlight';
-                            span.dataset.entityType = m[0].slice(1, -1);
-                            span.title = `Entité anonymisée: ${m[0]}`;
-                            frag.appendChild(span);
-                            
-                            last = m.index + m[0].length;
-                        }
-                        const after = text.slice(last);
-                        if (after) frag.appendChild(document.createTextNode(after));
-                        node.parentNode.replaceChild(frag, node);
-                    });
-                };
-
-                // State management
-                const saveState = () => {
-                    history.value.push({
-                        entities: JSON.parse(JSON.stringify(entityStore.items)),
-                        groups: JSON.parse(JSON.stringify(groupStore.items)),
-                    });
-                    future.value = [];
-                    // Limit history size
-                    if (history.value.length > 50) {
-                        history.value.shift();
-                    }
-                };
-
-                const undo = () => {
-                    if (!history.value.length) return;
-                    future.value.push({
-                        entities: JSON.parse(JSON.stringify(entityStore.items)),
-                        groups: JSON.parse(JSON.stringify(groupStore.items)),
-                    });
-                    const prev = history.value.pop();
-                    entityStore.items = prev.entities;
-                    groupStore.items = prev.groups;
-                    showToast('Action annulée', 'info');
-                };
-
-                const redo = () => {
-                    if (!future.value.length) return;
-                    history.value.push({
-                        entities: JSON.parse(JSON.stringify(entityStore.items)),
-                        groups: JSON.parse(JSON.stringify(groupStore.items)),
-                    });
-                    const next = future.value.pop();
-                    entityStore.items = next.entities;
-                    groupStore.items = next.groups;
-                    showToast('Action rétablie', 'info');
-                };
-
-                // Data loading
-                const loadStatus = async () => {
-                    if (!jobId) return;
-                    try {
-                        const res = await fetch(`/status/${jobId}`);
-                        if (!res.ok) throw new Error('Job not found');
-                        
-                        const data = await res.json();
-                        status.value = data.result;
-                        processingMode.value = data.mode || 'regex';
-                        entitiesDetected.value = data.entities_detected || 0;
-                        eta.value = data.eta;
-                        
-                        if (data.result) {
-                            entityStore.items = (data.result.entities || []).map((e) => ({
-                                id: crypto.randomUUID(),
-                                replacement: '',
-                                page: null,
-                                confidence: null,
-                                ...e,
-                            }));
-                            docType.value = data.result.filename.split('.').pop().toLowerCase();
-                            await renderDoc();
-                        }
-                    } catch (error) {
-                        console.error('Error loading status:', error);
-                        showToast('Erreur lors du chargement du document', 'error');
-                        setTimeout(() => {
-                            window.location.href = '/';
-                        }, 3000);
-                    }
-                };
-
-                const fetchRules = async () => {
-                    try {
-                        const res = await fetch('/rules');
-                        if (res.ok) {
-                            rules.value = await res.json();
-                        }
-                    } catch (error) {
-                        console.error('Error fetching rules:', error);
-                    }
-                };
-
-                // UI Actions
-                const changeView = async (v) => {
-                    view.value = v;
-                    await renderDoc();
-                };
-
-                const zoomIn = () => {
-                    zoom.value = Math.min(3, zoom.value + 0.1);
-                };
-
-                const zoomOut = () => {
-                    zoom.value = Math.max(0.3, zoom.value - 0.1);
-                };
-
-                const nextPage = () => {
-                    if (currentPage.value < totalPages.value) {
-                        currentPage.value += 1;
-                        showPage(currentPage.value);
-                    }
-                };
-
-                const prevPage = () => {
-                    if (currentPage.value > 1) {
-                        currentPage.value -= 1;
-                        showPage(currentPage.value);
-                    }
-                };
-
-                // Entity management
-                const toggleEntitySelection = (id) => {
-                    const index = selected.value.indexOf(id);
-                    if (index > -1) {
-                        selected.value.splice(index, 1);
-                    } else {
-                        selected.value.push(id);
-                    }
-                };
-
-                const toggleAll = (e) => {
-                    if (e.target.checked) {
-                        selected.value = entityStore.items.map((ent) => ent.id);
-                    } else {
-                        selected.value = [];
-                    }
-                };
-
-                const updateEntity = async (ent) => {
-                    saveState();
-                    await entityStore.update(ent);
-                };
-
-                const deleteSelected = async () => {
-                    if (!selected.value.length) return;
-                    saveState();
-                    for (const id of selected.value) {
-                        await entityStore.remove(id);
-                    }
-                    selected.value = [];
-                };
-
-                const confirmDetection = async () => {
-                    if (!newDetection.value.type || !newDetection.value.value) return;
-                    saveState();
-                    await entityStore.add({
-                        id: crypto.randomUUID(),
-                        type: newDetection.value.type,
-                        value: newDetection.value.value,
-                        replacement: newDetection.value.replacement || '',
-                        page: newDetection.value.page ?? currentPage.value,
-                        confidence: newDetection.value.confidence,
-                        start: 0,
-                        end: 0,
-                    });
-                    newDetection.value = { type: '', value: '', replacement: '', page: null, confidence: null };
-                    showDetectionModal.value = false;
-                };
-
-                // Group management
-                const confirmGroup = async () => {
-                    if (!newGroupName.value) return;
-                    saveState();
-                    await groupStore.add({ 
-                        id: crypto.randomUUID(),
-                        name: newGroupName.value, 
-                        entities: [] 
-                    });
-                    newGroupName.value = '';
-                    showGroupModal.value = false;
-                };
-
-                const deleteGroup = async (id) => {
-                    saveState();
-                    await groupStore.remove(id);
-                };
-
-                const groupSelected = async () => {
-                    if (!bulkGroup.value || !selected.value.length) return;
-                    saveState();
-                    for (const id of selected.value) {
-                        await groupStore.assign(id, bulkGroup.value);
-                    }
-                    selected.value = [];
-                    bulkGroup.value = '';
-                };
-
-                const assignToGroup = async (groupId, evt) => {
-                    const entId = evt.dataTransfer.getData('text/plain');
-                    if (entId) {
-                        saveState();
-                        await groupStore.assign(entId, groupId);
-                    }
-                };
-
-                // Drag and drop
-                const dragStart = (idx, evt) => {
-                    dragIndex.value = idx;
-                    evt.dataTransfer.setData('text/plain', entityStore.items[idx].id);
-                };
-
-                const drop = (idx) => {
-                    if (dragIndex.value === null) return;
-                    saveState();
-                    entityStore.reorder(dragIndex.value, idx);
-                    dragIndex.value = null;
-                };
-
-                // Search functionality
-                const search = async () => {
-                    if (!searchTerm.value) return;
-
-                    // Add to history
-                    if (!searchHistory.value.includes(searchTerm.value)) {
-                        searchHistory.value.unshift(searchTerm.value);
-                        if (searchHistory.value.length > 10) {
-                            searchHistory.value.pop();
-                        }
-                    }
-
-                    try {
-                        if (searchType.value === 'semantic') {
-                            const res = await fetch(`/semantic-search/${jobId}?q=${encodeURIComponent(searchTerm.value)}`);
-                            if (res.ok) {
-                                const data = await res.json();
-                                searchResults.value = data.matches.map(match => ({
-                                    text: match,
-                                    page: null
-                                }));
-                            }
-                        } else {
-                            // Simple text or regex search in document
-                            const container = document.getElementById('viewer');
-                            const text = container.textContent || '';
-                            const regex = searchType.value === 'regex' ? 
-                                new RegExp(searchTerm.value, 'gi') :
-                                new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g, '\\                const redo = () => {
-                    if (!future.value.length) return;
-                    history.value.push({
-                        entities: JSON.parse'), 'gi');
-                            
-                            const matches = [];
-                            let match;
-                            while ((match = regex.exec(text)) !== null) {
-                                matches.push({
-                                    text: match[0],
-                                    page: currentPage.value,
-                                    start: match.index,
-                                    end: match.index + match[0].length
-                                });
-                                if (matches.length >= 50) break; // Limit results
-                            }
-                            searchResults.value = matches;
-                        }
-                        
-                        highlightSearchResults();
-                        showToast(`${searchResults.value.length} résultat(s) trouvé(s)`, 'info');
-                    } catch (error) {
-                        console.error('Search error:', error);
-                        showToast('Erreur lors de la recherche', 'error');
-                    }
-                };
-
-                const highlightSearchResults = () => {
-                    // Remove previous highlights
-                    document.querySelectorAll('.search-highlight').forEach(el => {
-                        el.classList.remove('search-highlight');
-                    });
-
-                    if (!searchTerm.value || searchResults.value.length === 0) return;
-
-                    // Add new highlights
-                    const container = document.getElementById('viewer');
-                    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-                    const nodes = [];
-                    let node;
-                    while ((node = walker.nextNode())) nodes.push(node);
-
-                    const regex = searchType.value === 'regex' ? 
-                        new RegExp(searchTerm.value, 'gi') :
-                        new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g, '\\                const redo = () => {
-                    if (!future.value.length) return;
-                    history.value.push({
-                        entities: JSON.parse'), 'gi');
-
-                    nodes.forEach((n) => {
-                        const text = n.textContent;
-                        if (!regex.test(text)) return;
-                        
-                        const frag = document.createDocumentFragment();
-                        let last = 0;
-                        regex.lastIndex = 0;
-                        let m;
-                        while ((m = regex.exec(text))) {
-                            const before = text.slice(last, m.index);
-                            if (before) frag.appendChild(document.createTextNode(before));
-                            
-                            const span = document.createElement('span');
-                            span.textContent = m[0];
-                            span.className = 'search-highlight bg-yellow-300 rounded px-1';
-                            frag.appendChild(span);
-                            
-                            last = m.index + m[0].length;
-                        }
-                        const after = text.slice(last);
-                        if (after) frag.appendChild(document.createTextNode(after));
-                        
-                        if (frag.childNodes.length) {
-                            n.parentNode.replaceChild(frag, n);
-                        }
-                    });
-                };
-
-                const addSearchResultAsEntity = async (result) => {
-                    saveState();
-                    await entityStore.add({
-                        id: crypto.randomUUID(),
-                        type: 'UNKNOWN',
-                        value: result.text,
-                        replacement: '',
-                        page: result.page || currentPage.value,
-                        start: result.start || 0,
-                        end: result.end || 0,
-                    });
-                    showToast('Résultat ajouté comme entité', 'success');
-                };
-
-                // Rules management
-                const addRegex = () => {
-                    if (!newRegex.value.pattern) return;
-                    rules.value.regex_rules.push({ ...newRegex.value });
-                    newRegex.value = { pattern: '', replacement: '' };
-                };
-
-                const removeRegex = (idx) => {
-                    rules.value.regex_rules.splice(idx, 1);
-                };
-
-                const addStyle = () => {
-                    if (!newStyle.value.type || !newStyle.value.style) return;
-                    rules.value.styles[newStyle.value.type] = newStyle.value.style;
-                    newStyle.value = { type: '', style: '' };
-                };
-
-                const removeStyle = (type) => {
-                    delete rules.value.styles[type];
-                };
-
-                const saveRules = async () => {
-                    try {
-                        await fetch('/rules', {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(rules.value),
-                        });
-                        showToast('Règles sauvegardées avec succès', 'success');
-                    } catch (error) {
-                        console.error('Error saving rules:', error);
-                        showToast('Erreur lors de la sauvegarde des règles', 'error');
-                    }
-                };
-
-                // Export functionality
-                const exportDoc = async () => {
-                    try {
-                        const res = await fetch(`/export/${jobId}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ watermark: '', audit: false })
-                        });
-                        
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data.download_url) {
-                                window.location.href = data.download_url;
-                                showToast('Document exporté avec succès', 'success');
-                            }
-                        } else {
-                            throw new Error('Export failed');
-                        }
-                    } catch (error) {
-                        console.error('Export error:', error);
-                        showToast('Erreur lors de l\'export', 'error');
-                    }
-                };
-
-                const exportWithOptions = async () => {
-                    try {
-                        const res = await fetch(`/export/${jobId}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                watermark: watermark.value, 
-                                audit: wantAudit.value 
-                            })
-                        });
-                        
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data.download_url) {
-                                window.location.href = data.download_url;
-                            }
-                            if (data.audit_url) {
-                                window.open(data.audit_url, '_blank');
-                            }
-                            showToast('Document exporté avec succès', 'success');
-                        } else {
-                            throw new Error('Export failed');
-                        }
-                    } catch (error) {
-                        console.error('Export error:', error);
-                        showToast('Erreur lors de l\'export', 'error');
-                    }
-                    showExportModal.value = false;
-                };
-
-                // Utility functions
-                const getEntityTypeClass = (type) => {
-                    return getEntityTypeClass(type);
-                };
-
-                const getEntityById = (id) => {
-                    return entityStore.items.find(e => e.id === id);
-                };
-
-                const handleTextSelection = () => {
-                    handleTextSelection();
-                };
-
-                // Initialize
-                onMounted(async () => {
-                    await loadStatus();
-                    await groupStore.fetch();
-                    await fetchRules();
-                    
-                    // Setup global event listeners
-                    document.addEventListener('click', () => {
-                        hideFloatingMenu();
-                    });
-                });
-
-                return {
-                    // Reactive data
-                    status, processingMode, entitiesDetected, eta, view, docType,
-                    zoom, currentPage, totalPages, activeTab, searchTerm, searchType,
-                    searchResults, searchHistory, selected, bulkGroup, dragIndex,
-                    showDetectionModal, showGroupModal, showExportModal,
-                    newDetection, newGroupName, watermark, wantAudit,
-                    rules, newRegex, newStyle, history, future,
-                    
-                    // Store access
-                    entityStore, groupStore, entities,
-                    
-                    // Methods
-                    changeView, zoomIn, zoomOut, nextPage, prevPage,
-                    toggleEntitySelection, toggleAll, updateEntity, deleteSelected,
-                    confirmDetection, confirmGroup, deleteGroup, groupSelected,
-                    assignToGroup, dragStart, drop, search, addSearchResultAsEntity,
-                    addRegex, removeRegex, addStyle, removeStyle, saveRules,
-                    exportDoc, exportWithOptions, undo, redo,
-                    getEntityTypeClass, getEntityById, handleTextSelection
-                };
-            }
-        }).use(pinia).mount('#app');
-    </script>
+        highlightSearchResults();
+        showToast(`${searchResults.value.length} résultat(s) trouvé(s)`,'info');
+      }catch(e){ showToast('Erreur lors de la recherche','error'); }
+    };
+    const highlightSearchResults=()=>{
+      document.querySelectorAll('.search-highlight').forEach(el=>{ el.classList.remove('search-highlight'); });
+      if(!searchTerm.value||searchResults.value.length===0) return;
+      const container=document.getElementById('viewer');
+      const walker=document.createTreeWalker(container,NodeFilter.SHOW_TEXT);
+      const nodes=[]; let node; while((node=walker.nextNode())) nodes.push(node);
+      const regex = searchType.value==='regex'
+        ? new RegExp(searchTerm.value,'gi')
+        : new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
+      nodes.forEach(n=>{
+        const text=n.textContent;
+        if(!regex.test(text)) return;
+        const frag=document.createDocumentFragment();
+        let last=0; regex.lastIndex=0; let m;
+        while((m=regex.exec(text))){
+          const before=text.slice(last,m.index);
+          if(before) frag.appendChild(document.createTextNode(before));
+          const span=document.createElement('span');
+          span.textContent=m[0];
+          span.className='search-highlight bg-yellow-300 rounded px-1';
+          frag.appendChild(span);
+          last=m.index+m[0].length;
+        }
+        const after=text.slice(last);
+        if(after) frag.appendChild(document.createTextNode(after));
+        if(frag.childNodes.length){ n.parentNode.replaceChild(frag,n); }
+      });
+    };
+    const addSearchResultAsEntity=async(result)=>{
+      saveState();
+      await entityStore.add({ id:crypto.randomUUID(), type:'UNKNOWN', value:result.text, replacement:'', page:result.page||currentPage.value, start:result.start||0, end:result.end||0 });
+      showToast('Résultat ajouté comme entité','success');
+    };
+    const addRegex=()=>{ if(!newRegex.value.pattern) return; rules.value.regex_rules.push({ ...newRegex.value }); newRegex.value={ pattern:'', replacement:'' }; };
+    const removeRegex=(idx)=>{ rules.value.regex_rules.splice(idx,1); };
+    const addStyle=()=>{ if(!newStyle.value.type||!newStyle.value.style) return; rules.value.styles[newStyle.value.type]=newStyle.value.style; newStyle.value={ type:'', style:'' }; };
+    const removeStyle=(type)=>{ delete rules.value.styles[type]; };
+    const saveRules=async()=>{
+      try{
+        await fetch('/rules',{ method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(rules.value) });
+        showToast('Règles sauvegardées avec succès','success');
+      }catch(e){ showToast('Erreur lors de la sauvegarde des règles','error'); }
+    };
+    const exportDoc=async()=>{
+      try{
+        const res=await fetch(`/export/${jobId}`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ watermark:'', audit:false }) });
+        if(res.ok){
+          const data=await res.json();
+          if(data.download_url){ window.location.href=data.download_url; showToast('Document exporté avec succès','success'); }
+        } else { throw new Error('Export failed'); }
+      }catch(e){ showToast('Erreur lors de l\'export','error'); }
+    };
+    const exportWithOptions=async()=>{
+      try{
+        const res=await fetch(`/export/${jobId}`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ watermark:watermark.value, audit:wantAudit.value }) });
+        if(res.ok){
+          const data=await res.json();
+          if(data.download_url){ window.location.href=data.download_url; }
+          if(data.audit_url){ window.open(data.audit_url,'_blank'); }
+          showToast('Document exporté avec succès','success');
+        } else { throw new Error('Export failed'); }
+      }catch(e){ showToast('Erreur lors de l\'export','error'); }
+      showExportModal.value=false;
+    };
+    const getEntityTypeClass=(type)=>mapEntityTypeClass(type);
+    const getEntityById=(id)=>entityStore.items.find(e=>e.id===id);
+    const onTextSelection=()=>handleTextSelectionGlobal();
+    onMounted(async()=>{
+      await loadStatus();
+      await groupStore.fetch();
+      await fetchRules();
+      window.__stores={ entityStore, groupStore };
+      document.addEventListener('click',()=>{ hideFloatingMenu(); });
+    });
+    return {
+      status, processingMode, entitiesDetected, eta, view, docType, zoom, currentPage, totalPages, activeTab, searchTerm, searchType, searchResults, searchHistory, selected, bulkGroup, dragIndex, showDetectionModal, showGroupModal, showExportModal, newDetection, newGroupName, watermark, wantAudit, rules, newRegex, newStyle, history, future, entityStore, groupStore, entities, changeView, zoomIn, zoomOut, nextPage, prevPage, toggleEntitySelection, toggleAll, updateEntity, deleteSelected, confirmDetection, confirmGroup, deleteGroup, groupSelected, assignToGroup, dragStart, drop, search, addSearchResultAsEntity, addRegex, removeRegex, addStyle, removeStyle, saveRules, exportDoc, exportWithOptions, undo, redo, getEntityTypeClass, getEntityById, onTextSelection
+    };
+  }
+}).use(pinia).mount('#app');
+</script>
 </body>
 </html>
