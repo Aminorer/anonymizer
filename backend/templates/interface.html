@@ -16,6 +16,8 @@
       <button @click="zoomOut">Zoom -</button>
       <button @click="prevPage">Précédent</button>
       <button @click="nextPage">Suivant</button>
+      <button @click="undo">Annuler</button>
+      <button @click="redo">Rétablir</button>
       <span>{{ currentPage }} / {{ totalPages }}</span>
     </div>
     <div class="container">
@@ -31,11 +33,16 @@
           <div class="entity-actions">
             <button @click="showDetectionModal=true">Ajouter détection</button>
             <button @click="deleteSelected">Supprimer sélection</button>
+            <select v-model="bulkGroup">
+              <option disabled value="">--Groupe--</option>
+              <option v-for="grp in groupStore.items" :value="grp.id">{{ grp.name }}</option>
+            </select>
+            <button @click="groupSelected">Grouper sélection</button>
           </div>
           <table class="entity-table">
             <thead>
               <tr>
-                <th></th>
+                <th><input type="checkbox" @change="toggleAll($event)" :checked="selected.length === entities.length && entities.length > 0" /></th>
                 <th>Type</th>
                 <th>Valeur</th>
                 <th>Remplacement</th>
@@ -44,7 +51,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(ent,idx) in entityStore.items" :key="ent.id" draggable="true"
+              <tr v-for="(ent,idx) in entities" :key="ent.id" draggable="true"
                   @dragstart="dragStart(idx,$event)" @dragover.prevent @drop="drop(idx)">
                 <td><input type="checkbox" v-model="selected" :value="ent.id" /></td>
                 <td><input v-model="ent.type" @change="updateEntity(ent)" /></td>

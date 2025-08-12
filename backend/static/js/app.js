@@ -85,17 +85,18 @@
       const activeTab = ref('entities');
       const searchTerm = ref('');
       const searchType = ref('text');
-      const selected = ref([]);
-      const dragIndex = ref(null);
-      const showDetectionModal = ref(false);
-      const showGroupModal = ref(false);
-      const showExportModal = ref(false);
-      const watermark = ref('');
-      const wantAudit = ref(false);
-      const newDetection = ref({ type: '', value: '', replacement: '', page: null, confidence: null });
-      const rules = ref({ regex_rules: [], ner: { confidence: 0.5 }, styles: {} });
-      const newRegex = ref({ pattern: '', replacement: '' });
-      const newStyle = ref({ type: '', style: '' });
+        const selected = ref([]);
+        const bulkGroup = ref('');
+        const dragIndex = ref(null);
+        const showDetectionModal = ref(false);
+        const showGroupModal = ref(false);
+        const showExportModal = ref(false);
+        const watermark = ref('');
+        const wantAudit = ref(false);
+        const newDetection = ref({ type: '', value: '', replacement: '', page: null, confidence: null });
+        const rules = ref({ regex_rules: [], ner: { confidence: 0.5 }, styles: {} });
+        const newRegex = ref({ pattern: '', replacement: '' });
+        const newStyle = ref({ type: '', style: '' });
 
       const applyZoom = () => {
         const container = document.getElementById('viewer');
@@ -103,9 +104,38 @@
         container.style.transformOrigin = 'top left';
       };
 
-      const entityStore = useEntityStore();
-      const groupStore = useGroupStore();
-      const entities = computed(() => entityStore.items);
+        const entityStore = useEntityStore();
+        const groupStore = useGroupStore();
+        const entities = computed(() => entityStore.items);
+        const history = ref([]);
+        const future = ref([]);
+        const saveState = () => {
+          history.value.push({
+            entities: JSON.parse(JSON.stringify(entityStore.items)),
+            groups: JSON.parse(JSON.stringify(groupStore.items)),
+          });
+          future.value = [];
+        };
+        const undo = () => {
+          if (!history.value.length) return;
+          future.value.push({
+            entities: JSON.parse(JSON.stringify(entityStore.items)),
+            groups: JSON.parse(JSON.stringify(groupStore.items)),
+          });
+          const prev = history.value.pop();
+          entityStore.items = prev.entities;
+          groupStore.items = prev.groups;
+        };
+        const redo = () => {
+          if (!future.value.length) return;
+          history.value.push({
+            entities: JSON.parse(JSON.stringify(entityStore.items)),
+            groups: JSON.parse(JSON.stringify(groupStore.items)),
+          });
+          const next = future.value.pop();
+          entityStore.items = next.entities;
+          groupStore.items = next.groups;
+        };
 
       const loadStatus = async () => {
         if (!jobId) return;
@@ -366,14 +396,18 @@
       };
       const drop = (idx) => {
         if (dragIndex.value === null) return;
+        saveState();
         entityStore.reorder(dragIndex.value, idx);
         dragIndex.value = null;
       };
 
       const updateEntity = async (ent) => {
+        saveState();
         await entityStore.update(ent);
       };
       const deleteSelected = async () => {
+        if (!selected.value.length) return;
+        saveState();
         for (const id of selected.value) await entityStore.remove(id);
         selected.value = [];
       };
@@ -381,12 +415,14 @@
       const newGroupName = ref('');
       const confirmGroup = async () => {
         if (!newGroupName.value) return;
+        saveState();
         await groupStore.add({ name: newGroupName.value, entities: [] });
         newGroupName.value = '';
         showGroupModal.value = false;
       };
       const confirmDetection = async () => {
         if (!newDetection.value.type || !newDetection.value.value) return;
+        saveState();
         await entityStore.add({
           id: crypto.randomUUID(),
           type: newDetection.value.type,
@@ -401,11 +437,29 @@
         showDetectionModal.value = false;
       };
       const deleteGroup = async (id) => {
+        saveState();
         await groupStore.remove(id);
       };
       const assignToGroup = async (groupId, evt) => {
         const entId = evt.dataTransfer.getData('text/plain');
-        if (entId) await groupStore.assign(entId, groupId);
+        if (entId) {
+          saveState();
+          await groupStore.assign(entId, groupId);
+        }
+      };
+      const toggleAll = (e) => {
+        if (e.target.checked) {
+          selected.value = entityStore.items.map((ent) => ent.id);
+        } else {
+          selected.value = [];
+        }
+      };
+      const groupSelected = async () => {
+        if (!bulkGroup.value || !selected.value.length) return;
+        saveState();
+        for (const id of selected.value) await groupStore.assign(id, bulkGroup.value);
+        selected.value = [];
+        bulkGroup.value = '';
       };
 
       const exportDoc = async () => {
@@ -441,19 +495,24 @@
         eta,
         entityStore,
         groupStore,
-        selected,
-        dragStart,
-        drop,
-        updateEntity,
-        deleteSelected,
-        newGroupName,
-        confirmGroup,
-        confirmDetection,
-        deleteGroup,
-        assignToGroup,
-        showDetectionModal,
-        showGroupModal,
-        showExportModal,
+          selected,
+          bulkGroup,
+          dragStart,
+          drop,
+          updateEntity,
+          deleteSelected,
+          groupSelected,
+          newGroupName,
+          confirmGroup,
+          confirmDetection,
+          deleteGroup,
+          assignToGroup,
+          toggleAll,
+          undo,
+          redo,
+          showDetectionModal,
+          showGroupModal,
+          showExportModal,
         watermark,
         wantAudit,
         exportDoc,
