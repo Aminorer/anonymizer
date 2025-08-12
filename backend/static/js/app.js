@@ -9,7 +9,12 @@
     actions: {
       async fetch() {
         const res = await fetch(`/entities/${jobId}`);
-        this.items = await res.json();
+        this.items = (await res.json()).map((e) => ({
+          replacement: '',
+          page: null,
+          confidence: null,
+          ...e,
+        }));
       },
       async add(entity) {
         const res = await fetch(`/entities/${jobId}`, {
@@ -87,7 +92,7 @@
       const showExportModal = ref(false);
       const watermark = ref('');
       const wantAudit = ref(false);
-      const newDetection = ref({ type: '', value: '' });
+      const newDetection = ref({ type: '', value: '', replacement: '', page: null, confidence: null });
       const rules = ref({ regex_rules: [], ner: { confidence: 0.5 }, styles: {} });
       const newRegex = ref({ pattern: '', replacement: '' });
       const newStyle = ref({ type: '', style: '' });
@@ -112,6 +117,9 @@
         eta.value = data.eta;
         entityStore.items = (data.result.entities || []).map((e) => ({
           id: crypto.randomUUID(),
+          replacement: '',
+          page: null,
+          confidence: null,
           ...e,
         }));
         docType.value = data.result.filename.split('.').pop().toLowerCase();
@@ -383,10 +391,13 @@
           id: crypto.randomUUID(),
           type: newDetection.value.type,
           value: newDetection.value.value,
+          replacement: newDetection.value.replacement || '',
+          page: newDetection.value.page ?? currentPage.value,
+          confidence: newDetection.value.confidence,
           start: 0,
           end: 0,
         });
-        newDetection.value = { type: '', value: '' };
+        newDetection.value = { type: '', value: '', replacement: '', page: null, confidence: null };
         showDetectionModal.value = false;
       };
       const deleteGroup = async (id) => {
