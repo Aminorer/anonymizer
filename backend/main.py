@@ -392,6 +392,12 @@ def update_group(job_id: str, group_id: str, group: GroupModel) -> GroupModel:
 @app.delete("/groups/{job_id}/{group_id}")
 def delete_group(job_id: str, group_id: str):
     """Delete a group for a job and clear group assignments."""
+    # Ensure the group exists before attempting deletion so we can
+    # provide a proper 404 response instead of silently succeeding.
+    existing = groups_store.get_nested(job_id, group_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
     groups_store.delete_nested(job_id, group_id)
     job_entities = entities_store.get(job_id, {})
     for ent in job_entities.values():
