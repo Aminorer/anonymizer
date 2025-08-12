@@ -34,7 +34,14 @@
           </div>
           <table class="entity-table">
             <thead>
-              <tr><th></th><th>Type</th><th>Valeur</th></tr>
+              <tr>
+                <th></th>
+                <th>Type</th>
+                <th>Valeur</th>
+                <th>Remplacement</th>
+                <th>Page</th>
+                <th v-if="processingMode==='ai'">Confiance</th>
+              </tr>
             </thead>
             <tbody>
               <tr v-for="(ent,idx) in entityStore.items" :key="ent.id" draggable="true"
@@ -42,6 +49,9 @@
                 <td><input type="checkbox" v-model="selected" :value="ent.id" /></td>
                 <td><input v-model="ent.type" @change="updateEntity(ent)" /></td>
                 <td><input v-model="ent.value" @change="updateEntity(ent)" /></td>
+                <td><input v-model="ent.replacement" @change="updateEntity(ent)" /></td>
+                <td><input v-model.number="ent.page" type="number" @change="updateEntity(ent)" /></td>
+                <td v-if="processingMode==='ai'"><input v-model.number="ent.confidence" type="number" step="0.01" @change="updateEntity(ent)" /></td>
               </tr>
             </tbody>
           </table>
