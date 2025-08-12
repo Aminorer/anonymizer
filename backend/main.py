@@ -13,6 +13,7 @@ import os
 import json
 import time
 import logging
+from typing import Optional
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -181,6 +182,7 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
                 "mapping": [m.to_dict() for m in mapping],  # Convert RunInfo to dict
                 "original_url": f"/static/uploads/{original_filename}",
                 "anonymized_url": f"/static/uploads/{anonymized_filename}",
+                "text": text,
             }
         else:
             logger.info(f"Job {job_id}: Traitement PDF")
@@ -234,23 +236,69 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
 @app.post("/upload")
 async def upload_file(
     background_tasks: BackgroundTasks,
-    mode: str = Form(...),
-    confidence: float = Form(ai_anonymizer.confidence),
     file: UploadFile = File(...),
+    mode: str = Form(default="regex"),
+    confidence: Optional[float] = Form(default=None),
 ):
     """Handle file upload asynchronously and return a job identifier."""
-    contents = await file.read()
-    job_id = uuid4().hex
+    
+    # Validation des paramètres
+    if not file:
+        raise HTTPException(status_code=400, detail="Aucun fichier fourni")
+    
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Nom de fichier manquant")
+    
+    # Validation du mode
+    if mode not in ["regex", "ai"]:
+        raise HTTPException(status_code=400, detail="Mode invalide. Utilisez 'regex' ou 'ai'")
+    
+    # Validation de la confiance pour le mode IA
+    if mode == "ai":
+        if confidence is None:
+            confidence = ai_anonymizer.confidence
+        else:
+            try:
+                confidence = float(confidence)
+                if not 0.0 <= confidence <= 1.0:
+                    raise HTTPException(status_code=400, detail="La confiance doit être entre 0 et 1")
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=400, detail="Valeur de confiance invalide")
+    else:
+        confidence = 0.5  # Valeur par défaut pour le mode regex
+    
+    # Lire le contenu du fichier
+    try:
+        contents = await file.read()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erreur lors de la lecture du fichier: {str(e)}")
     
     # Vérifications préliminaires
     if len(contents) == 0:
         raise HTTPException(status_code=400, detail="Fichier vide")
     
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="Nom de fichier manquant")
+    # Vérifier l'extension
+    extension = file.filename.split(".")[-1].lower()
+    if extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Format non supporté. Formats acceptés: {', '.join(ALLOWED_EXTENSIONS).upper()}"
+        )
     
-    logger.info(f"Nouveau job {job_id} pour fichier {file.filename}")
+    # Vérifier la taille
+    size_mb = len(contents) / (1024 * 1024)
+    if size_mb > MAX_FILE_SIZE_MB:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Fichier trop volumineux ({size_mb:.1f}MB). Taille maximale: {MAX_FILE_SIZE_MB}MB"
+        )
     
+    # Créer un job
+    job_id = uuid4().hex
+    
+    logger.info(f"Nouveau job {job_id} pour fichier {file.filename} (mode: {mode}, confiance: {confidence})")
+    
+    # Initialiser le job dans le store
     jobs_store.set(
         job_id,
         {
@@ -259,10 +307,16 @@ async def upload_file(
             "mode": mode,
             "entities_detected": 0,
             "eta": None,
+            "filename": file.filename,
+            "filesize": len(contents),
+            "confidence": confidence,
         },
     )
+    
+    # Lancer le traitement en arrière-plan
     background_tasks.add_task(_process_file, job_id, mode, confidence, contents, file.filename)
-    return {"job_id": job_id}
+    
+    return {"job_id": job_id, "status": "processing", "message": "Traitement démarré"}
 
 @app.get("/progress", response_class=HTMLResponse)
 def progress_page(request: Request):

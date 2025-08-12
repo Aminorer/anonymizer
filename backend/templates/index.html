@@ -111,7 +111,7 @@
             <div class="flex items-center space-x-4">
                 <span class="text-sm text-gray-500">Faible</span>
                 <div class="flex-1">
-                    <input type="range" id="confidence" min="0" max="1" step="0.01" value="0.5" 
+                    <input type="range" id="confidence" name="confidence" min="0" max="1" step="0.01" value="0.5" 
                            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider">
                 </div>
                 <span class="text-sm text-gray-500">Élevée</span>
@@ -126,8 +126,9 @@
 
         <!-- Upload Zone -->
         <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
-            <input type="hidden" id="mode-input" name="mode" value="regex">
-            <input type="hidden" id="confidence-input" name="confidence" value="0.5">
+            <!-- Hidden inputs for form data -->
+            <input type="hidden" name="mode" value="regex" id="mode-input">
+            <input type="hidden" name="confidence" value="0.5" id="confidence-input">
             
             <div id="dropzone" class="dropzone border-4 border-dashed border-white rounded-2xl p-12 text-center text-white cursor-pointer mb-6">
                 <div class="max-w-md mx-auto">
@@ -201,38 +202,14 @@
     </div>
 
     <script>
-        // Mode selection
-        document.querySelectorAll('.mode-card').forEach(card => {
-            card.addEventListener('click', () => {
-                document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
-                card.classList.add('selected');
-                
-                const mode = card.dataset.mode;
-                document.getElementById('mode-input').value = mode;
-                
-                const confidenceSection = document.getElementById('confidence-section');
-                if (mode === 'ai') {
-                    confidenceSection.classList.remove('hidden');
-                } else {
-                    confidenceSection.classList.add('hidden');
-                }
-            });
-        });
+        // Variables globales
+        let currentFile = null;
+        let isUploading = false;
 
-        // Confidence slider
-        const slider = document.getElementById('confidence');
-        const output = document.getElementById('confidence-value');
-        const confidenceInput = document.getElementById('confidence-input');
-
-        slider.addEventListener('input', () => {
-            const value = parseFloat(slider.value).toFixed(2);
-            output.textContent = value;
-            confidenceInput.value = value;
-        });
-
-        // Dropzone functionality
-        const dropzone = document.getElementById('dropzone');
+        // DOM Elements
+        const form = document.getElementById('upload-form');
         const fileInput = document.getElementById('file-input');
+        const dropzone = document.getElementById('dropzone');
         const fileInfo = document.getElementById('file-info');
         const fileName = document.getElementById('file-name');
         const fileSize = document.getElementById('file-size');
@@ -240,9 +217,13 @@
         const errorMessage = document.getElementById('error-message');
         const errorText = document.getElementById('error-text');
         const submitBtn = document.getElementById('submit-btn');
-        const form = document.getElementById('upload-form');
+        const modeInput = document.getElementById('mode-input');
+        const confidenceInput = document.getElementById('confidence-input');
+        const confidenceSlider = document.getElementById('confidence');
+        const confidenceValue = document.getElementById('confidence-value');
+        const confidenceSection = document.getElementById('confidence-section');
 
-        // File size formatter
+        // Utility functions
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
@@ -251,25 +232,10 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
-        // Show error
-        function showError(message) {
-            errorText.textContent = message;
-            errorMessage.classList.remove('hidden');
-            setTimeout(() => {
-                errorMessage.classList.add('hidden');
-            }, 5000);
-        }
-
-        // Hide error
-        function hideError() {
-            errorMessage.classList.add('hidden');
-        }
-
-        // Validate file
         function validateFile(file) {
             const maxSize = 25 * 1024 * 1024; // 25MB
-            const allowedTypes = ['.pdf', '.docx'];
-            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            const allowedTypes = ['pdf', 'docx'];
+            const fileExtension = file.name.split('.').pop().toLowerCase();
 
             if (!allowedTypes.includes(fileExtension)) {
                 showError('Format de fichier non supporté. Utilisez PDF ou DOCX.');
@@ -289,56 +255,130 @@
             return true;
         }
 
-        // Handle file selection
-        function handleFile(file) {
+        function showError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.remove('hidden');
+            setTimeout(() => {
+                errorMessage.classList.add('hidden');
+            }, 5000);
+        }
+
+        function hideError() {
+            errorMessage.classList.add('hidden');
+        }
+
+        function updateUI() {
+            if (currentFile) {
+                fileName.textContent = currentFile.name;
+                fileSize.textContent = formatFileSize(currentFile.size);
+                fileInfo.classList.remove('hidden');
+                submitBtn.disabled = false;
+                
+                dropzone.innerHTML = `
+                    <div class="flex items-center justify-center">
+                        <i class="fas fa-check-circle text-4xl mr-4 opacity-80"></i>
+                        <div class="text-left">
+                            <div class="text-xl font-semibold">Fichier sélectionné</div>
+                            <div class="text-sm opacity-90">${currentFile.name}</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                fileInfo.classList.add('hidden');
+                submitBtn.disabled = true;
+                dropzone.innerHTML = `
+                    <div class="max-w-md mx-auto">
+                        <div class="mb-6">
+                            <i class="fas fa-cloud-upload-alt text-6xl mb-4 opacity-80"></i>
+                            <h3 class="text-2xl font-semibold mb-2">Déposez votre document ici</h3>
+                            <p class="text-lg opacity-90">ou cliquez pour sélectionner un fichier</p>
+                        </div>
+                        <div class="text-sm opacity-75">
+                            <p>Formats acceptés : PDF, DOCX</p>
+                            <p>Taille maximale : 25 Mo</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (isUploading) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `
+                    <div class="flex items-center justify-center">
+                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        Traitement en cours...
+                    </div>
+                `;
+                dropzone.style.pointerEvents = 'none';
+                dropzone.style.opacity = '0.7';
+            } else {
+                dropzone.style.pointerEvents = '';
+                dropzone.style.opacity = '';
+                if (currentFile) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `
+                        <i class="fas fa-magic mr-2"></i>
+                        Anonymiser le document
+                    `;
+                }
+            }
+        }
+
+        function handleFileSelection(file) {
             if (!validateFile(file)) {
-                resetFileInput();
+                currentFile = null;
+                fileInput.value = '';
+                updateUI();
                 return;
             }
 
+            currentFile = file;
             hideError();
-            
-            // Update UI
-            fileName.textContent = file.name;
-            fileSize.textContent = formatFileSize(file.size);
-            fileInfo.classList.remove('hidden');
-            submitBtn.disabled = false;
-            
-            // Update dropzone
-            dropzone.innerHTML = `
-                <div class="flex items-center justify-center">
-                    <i class="fas fa-check-circle text-3xl mr-3 opacity-80"></i>
-                    <span class="text-xl">Fichier sélectionné avec succès</span>
-                </div>
-            `;
+            updateUI();
         }
 
-        // Reset file input
-        function resetFileInput() {
+        function resetFile() {
+            currentFile = null;
             fileInput.value = '';
-            fileInfo.classList.add('hidden');
-            submitBtn.disabled = true;
-            dropzone.innerHTML = `
-                <div class="max-w-md mx-auto">
-                    <div class="mb-6">
-                        <i class="fas fa-cloud-upload-alt text-6xl mb-4 opacity-80"></i>
-                        <h3 class="text-2xl font-semibold mb-2">Déposez votre document ici</h3>
-                        <p class="text-lg opacity-90">ou cliquez pour sélectionner un fichier</p>
-                    </div>
-                    <div class="text-sm opacity-75">
-                        <p>Formats acceptés : PDF, DOCX</p>
-                        <p>Taille maximale : 25 Mo</p>
-                    </div>
-                </div>
-            `;
+            updateUI();
         }
 
-        // Event listeners
-        dropzone.addEventListener('click', () => fileInput.click());
+        // Mode selection handlers
+        document.querySelectorAll('.mode-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                
+                const mode = card.dataset.mode;
+                modeInput.value = mode;
+                
+                if (mode === 'ai') {
+                    confidenceSection.classList.remove('hidden');
+                } else {
+                    confidenceSection.classList.add('hidden');
+                }
+            });
+        });
+
+        // Confidence slider handler
+        confidenceSlider.addEventListener('input', () => {
+            const value = parseFloat(confidenceSlider.value).toFixed(2);
+            confidenceValue.textContent = value;
+            confidenceInput.value = value;
+        });
+
+        // Dropzone event handlers
+        dropzone.addEventListener('click', () => {
+            if (!isUploading) {
+                fileInput.click();
+            }
+        });
 
         dropzone.addEventListener('dragenter', (e) => {
             e.preventDefault();
-            dropzone.classList.add('hover');
+            if (!isUploading) {
+                dropzone.classList.add('hover');
+            }
         });
 
         dropzone.addEventListener('dragover', (e) => {
@@ -347,71 +387,102 @@
 
         dropzone.addEventListener('dragleave', (e) => {
             e.preventDefault();
-            dropzone.classList.remove('hover');
+            if (!dropzone.contains(e.relatedTarget)) {
+                dropzone.classList.remove('hover');
+            }
         });
 
         dropzone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropzone.classList.remove('hover');
-            const file = e.dataTransfer.files[0];
-            if (file) {
+            
+            if (isUploading) return;
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
                 const dataTransfer = new DataTransfer();
                 dataTransfer.items.add(file);
                 fileInput.files = dataTransfer.files;
-                handleFile(file);
+                handleFileSelection(file);
             }
         });
 
+        // File input change handler
         fileInput.addEventListener('change', () => {
             const file = fileInput.files[0];
             if (file) {
-                handleFile(file);
+                handleFileSelection(file);
             }
         });
 
+        // Remove file button
         removeFileBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            resetFileInput();
+            resetFile();
         });
 
         // Form submission
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const file = fileInput.files[0];
-            if (!file || !validateFile(file)) {
+            if (!currentFile || isUploading) {
                 return;
             }
 
-            // Disable submit button and show loading
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = `
-                <i class="fas fa-spinner fa-spin mr-2"></i>
-                Traitement en cours...
-            `;
+            if (!validateFile(currentFile)) {
+                return;
+            }
 
             try {
-                const formData = new FormData(form);
-                const response = await fetch('/upload', { 
-                    method: 'POST', 
-                    body: formData 
+                isUploading = true;
+                updateUI();
+
+                // Create FormData and append all necessary fields
+                const formData = new FormData();
+                formData.append('file', currentFile);
+                formData.append('mode', modeInput.value);
+                formData.append('confidence', confidenceInput.value);
+
+                console.log('Uploading file:', currentFile.name);
+                console.log('Mode:', modeInput.value);
+                console.log('Confidence:', confidenceInput.value);
+
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
                 });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.job_id) {
-                    window.location.href = `/progress?job_id=${data.job_id}`;
-                } else {
-                    throw new Error(data.detail || 'Erreur lors du téléchargement');
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `Erreur HTTP ${response.status}`);
                 }
+
+                const data = await response.json();
+
+                if (data.job_id) {
+                    console.log('Upload successful, job_id:', data.job_id);
+                    setTimeout(() => {
+                        window.location.href = `/progress?job_id=${data.job_id}`;
+                    }, 500);
+                } else {
+                    throw new Error('Réponse serveur invalide - job_id manquant');
+                }
+
             } catch (error) {
-                showError(error.message);
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = `
-                    <i class="fas fa-magic mr-2"></i>
-                    Anonymiser le document
-                `;
+                console.error('Upload error:', error);
+                showError(error.message || 'Erreur lors du téléchargement');
+                isUploading = false;
+                updateUI();
             }
+        });
+
+        // Prevent default drag behaviors on document
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
         });
 
         // Custom slider styling
@@ -438,6 +509,9 @@
             }
         `;
         document.head.appendChild(style);
+
+        // Initialize
+        updateUI();
     </script>
 </body>
 </html>
