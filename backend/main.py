@@ -33,6 +33,11 @@ class EntityModel(BaseModel):
     value: str
     start: int = 0
     end: int = 0
+    page: int | None = None
+    x: float | None = None
+    y: float | None = None
+    width: float | None = None
+    height: float | None = None
     group_id: str | None = None
 
 
@@ -159,7 +164,10 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
                 f.write(_anonymized)
             result = {
                 "filename": filename,
-                "entities": [e.__dict__ for e in entities],
+                "entities": [
+                    {k: v for k, v in e.__dict__.items() if v is not None}
+                    for e in entities
+                ],
                 "mapping": mapping,
                 "original_url": f"/static/uploads/{original_filename}",
                 "anonymized_url": f"/static/uploads/{anonymized_filename}",
@@ -189,7 +197,10 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
                 f.write(_anonymized_docx)
             result = {
                 "filename": f"{Path(filename).stem}.docx",
-                "entities": [e.__dict__ for e in entities],
+                "entities": [
+                    {k: v for k, v in e.__dict__.items() if v is not None}
+                    for e in entities
+                ],
                 "mapping": mapping,
                 "original_url": f"/static/uploads/{original_filename}",
                 "anonymized_url": f"/static/uploads/{anonymized_filename}",
@@ -374,7 +385,20 @@ async def export_job(job_id: str, opts: ExportOptions):
     mapping = result.get("mapping", [])
     stored = list(entities_db.get(job_id, {}).values())
     if stored:
-        entities = [Entity(type=e.type, value=e.value, start=e.start, end=e.end) for e in stored]
+        entities = [
+            Entity(
+                type=e.type,
+                value=e.value,
+                start=e.start,
+                end=e.end,
+                page=e.page,
+                x=e.x,
+                y=e.y,
+                width=e.width,
+                height=e.height,
+            )
+            for e in stored
+        ]
     else:
         entities = [Entity(**e) for e in result.get("entities", [])]
     modified, report = regex_anonymizer.export_docx(

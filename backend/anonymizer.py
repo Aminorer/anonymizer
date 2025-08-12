@@ -5,6 +5,7 @@ from io import BytesIO
 import tempfile
 from pathlib import Path
 
+import pdfplumber
 from pdf2docx import parse as pdf2docx_parse
 from docx import Document
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -16,6 +17,11 @@ class Entity:
     value: str
     start: int
     end: int
+    page: Optional[int] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+    width: Optional[float] = None
+    height: Optional[float] = None
 
 
 @dataclass
@@ -256,8 +262,15 @@ class RegexAnonymizer:
     def anonymize_pdf(
         self, data: bytes
     ) -> Tuple[bytes, List[Entity], List[RunInfo], str, bytes]:
-        """Convert a PDF to DOCX, anonymize it and return mapping info."""
+        """Convert a PDF to DOCX, anonymize it and return mapping info.
 
+        Additionally extracts bounding boxes for detected entities using
+        ``pdfplumber`` so that the frontend can highlight them on the
+        original PDF. Bounding boxes are expressed in the PDF coordinate
+        system where the origin is at the top-left corner.
+        """
+
+        # Convert the PDF to DOCX and run the regular anonymization pipeline
         with tempfile.TemporaryDirectory() as tmpdir:
             pdf_path = Path(tmpdir) / "input.pdf"
             docx_path = Path(tmpdir) / "converted.docx"
@@ -266,4 +279,59 @@ class RegexAnonymizer:
             original_docx = docx_path.read_bytes()
 
         anonymized, entities, mapping, text = self.anonymize_docx(original_docx)
+
+        # Compute bounding boxes from the original PDF. Any failure in this
+        # auxiliary step should not prevent the main anonymization workflow.
+        try:
+            with pdfplumber.open(BytesIO(data)) as pdf:
+                char_map = []
+                pdf_text_parts: List[str] = []
+                pos = 0
+                for page_num, page in enumerate(pdf.pages, start=1):
+                    for ch in page.chars:
+                        c = ch.get("text", "")
+                        if not c:
+                            continue
+                        pdf_text_parts.append(c)
+                        char_map.append(
+                            {
+                                "index": pos,
+                                "page": page_num,
+                                "x0": ch["x0"],
+                                "x1": ch["x1"],
+                                "top": ch["top"],
+                                "bottom": ch["bottom"],
+                            }
+                        )
+                        pos += len(c)
+                    pdf_text_parts.append("\n")
+                    pos += 1
+
+                pdf_text = "".join(pdf_text_parts)
+
+                search_pos = 0
+                for ent in sorted(entities, key=lambda e: e.start):
+                    idx = pdf_text.find(ent.value, search_pos)
+                    if idx == -1:
+                        continue
+                    search_pos = idx + len(ent.value)
+                    chars = [
+                        cm for cm in char_map if idx <= cm["index"] < idx + len(ent.value)
+                    ]
+                    if not chars:
+                        continue
+                    x0 = min(c["x0"] for c in chars)
+                    x1 = max(c["x1"] for c in chars)
+                    top = min(c["top"] for c in chars)
+                    bottom = max(c["bottom"] for c in chars)
+                    ent.page = chars[0]["page"]
+                    ent.x = x0
+                    ent.y = top
+                    ent.width = x1 - x0
+                    ent.height = bottom - top
+        except Exception:
+            # If anything goes wrong (e.g. malformed PDF), we simply skip
+            # bounding box extraction and return the anonymized document.
+            pass
+
         return anonymized, entities, mapping, text, original_docx
