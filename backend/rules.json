@@ -3,7 +3,7 @@
     { "pattern": "\\b\\d{2}-\\d{2}-\\d{4}\\b", "replacement": "[DATE]" }
   ],
   "ner": {
-    "model": "default",
+    "model": "hf-internal-testing/tiny-bert-large-cased-finetuned-conll03-english",
     "confidence": 0.5
   },
   "styles": {

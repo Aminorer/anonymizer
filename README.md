@@ -21,6 +21,19 @@ uvicorn backend.main:app --reload
 
 Ouvrir ensuite [http://localhost:8000](http://localhost:8000) pour accéder à la page d'accueil.
 
+## Configuration du modèle NER
+
+Le nom du modèle de reconnaissance d'entités ainsi que le seuil de confiance
+par défaut sont lus depuis `backend/rules.json`. Ils peuvent également être
+surchargés via les variables d'environnement suivantes :
+
+- `NER_MODEL` : identifiant du modèle Hugging Face à utiliser.
+- `NER_CONFIDENCE` : seuil de confiance minimal.
+- `NER_DEVICE` : "cpu" ou "gpu" pour forcer l'usage du CPU ou du GPU.
+- `NER_CACHE_DIR` : répertoire local pour mettre en cache les modèles.
+
+Par défaut, si un GPU compatible est disponible, il sera utilisé.
+
 ## Fonctionnalités actuelles
 
 - Upload d'un fichier DOCX (≤25 Mo) via le formulaire d'accueil
