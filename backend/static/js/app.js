@@ -231,7 +231,10 @@
             }
           }
         } else if (docType.value === 'docx') {
-          const url = view.value === 'original' ? status.value.original_url : status.value.download_url;
+          const url =
+            view.value === 'original'
+              ? status.value.original_url
+              : status.value.anonymized_url;
           const buffer = await fetch(url).then((r) => r.arrayBuffer());
           const container = document.getElementById('viewer');
           await docx.renderAsync(buffer, container);
