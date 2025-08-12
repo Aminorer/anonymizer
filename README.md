@@ -14,12 +14,34 @@ backend/
 
 ## Démarrer le serveur de développement
 
-```bash
-pip install -r backend/requirements.txt
-uvicorn backend.main:app --reload
-```
+1. **Cloner le dépôt** puis se placer dans le répertoire du projet :
 
-Ouvrir ensuite [http://localhost:8000](http://localhost:8000) pour accéder à la page d'accueil.
+   ```bash
+   git clone <URL_DU_DEPOT>
+   cd anonymizer
+   ```
+
+2. **Installer les dépendances** :
+
+   ```bash
+   pip install -r backend/requirements.txt
+   ```
+
+   Certains modèles de reconnaissance d'entités (NER) s'appuient sur `torch`. 
+   Installez-le s'il n'est pas présent :
+
+   ```bash
+   pip install torch
+   ```
+
+3. **Lancer le serveur** :
+
+   ```bash
+   uvicorn backend.main:app --reload
+   ```
+
+4. **Accéder à l'application** : ouvrir [http://localhost:8000](http://localhost:8000) puis suivre les étapes :
+   upload d'un document, page de progression puis interface d'anonymisation.
 
 ## Configuration du modèle NER
 
@@ -31,6 +53,14 @@ surchargés via les variables d'environnement suivantes :
 - `NER_CONFIDENCE` : seuil de confiance minimal.
 - `NER_DEVICE` : "cpu" ou "gpu" pour forcer l'usage du CPU ou du GPU.
 - `NER_CACHE_DIR` : répertoire local pour mettre en cache les modèles.
+
+Les modèles NER sont téléchargés automatiquement depuis Hugging Face lors de
+leur première utilisation. Pour prétélécharger un modèle ou travailler hors
+ligne, vous pouvez utiliser :
+
+```bash
+huggingface-cli download <MODELE> --cache-dir $NER_CACHE_DIR
+```
 
 Par défaut, si un GPU compatible est disponible, il sera utilisé.
 
