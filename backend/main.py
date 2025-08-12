@@ -8,6 +8,7 @@ from pathlib import Path
 from difflib import get_close_matches
 from .anonymizer import RegexAnonymizer, Entity
 from .ai_anonymizer import AIAnonymizer
+from .storage import jobs_store, entities_store, groups_store
 import os
 import json
 import time
@@ -23,10 +24,6 @@ templates = Jinja2Templates(directory="backend/templates")
 ALLOWED_EXTENSIONS = {"pdf", "docx"}
 MAX_FILE_SIZE_MB = 25
 
-# simple in-memory job store
-jobs: dict[str, dict] = {}
-
-# in-memory stores for entities and groups
 class EntityModel(BaseModel):
     id: str
     type: str
@@ -45,11 +42,6 @@ class GroupModel(BaseModel):
     id: str
     name: str
     entities: list[str] = []
-
-
-# in-memory stores keyed by job then by entity/group id
-entities_db: dict[str, dict[str, EntityModel]] = {}
-groups_db: dict[str, dict[str, GroupModel]] = {}
 
 
 class ExportOptions(BaseModel):
@@ -123,35 +115,32 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
         return elapsed * (100 - progress) / progress
 
     start_time = time.time()
-    jobs[job_id].update({"mode": mode, "entities_detected": 0, "eta": None})
+    jobs_store.update(job_id, {"mode": mode, "entities_detected": 0, "eta": None})
     try:
         extension = filename.split(".")[-1].lower()
         if extension not in ALLOWED_EXTENSIONS:
-            jobs[job_id] = {"status": "error", "message": "Format non pris en charge", "mode": mode, "entities_detected": 0, "eta": 0}
+            jobs_store.set(job_id, {"status": "error", "message": "Format non pris en charge", "mode": mode, "entities_detected": 0, "eta": 0})
             return
 
         size_mb = len(contents) / (1024 * 1024)
         if size_mb > MAX_FILE_SIZE_MB:
-            jobs[job_id] = {"status": "error", "message": "Fichier trop volumineux", "mode": mode, "entities_detected": 0, "eta": 0}
+            jobs_store.set(job_id, {"status": "error", "message": "Fichier trop volumineux", "mode": mode, "entities_detected": 0, "eta": 0})
             return
 
         if mode not in {"regex", "ai"}:
-            jobs[job_id] = {"status": "error", "message": "Mode inconnu", "mode": mode, "entities_detected": 0, "eta": 0}
+            jobs_store.set(job_id, {"status": "error", "message": "Mode inconnu", "mode": mode, "entities_detected": 0, "eta": 0})
             return
 
-        jobs[job_id]["progress"] = 10
-        jobs[job_id]["eta"] = _calc_eta(start_time, 10)
+        jobs_store.update(job_id, {"progress": 10, "eta": _calc_eta(start_time, 10)})
         if extension == "docx":
             _anonymized, regex_entities, mapping, text = regex_anonymizer.anonymize_docx(contents)
-            jobs[job_id]["progress"] = 60
-            jobs[job_id]["eta"] = _calc_eta(start_time, 60)
+            jobs_store.update(job_id, {"progress": 60, "eta": _calc_eta(start_time, 60)})
             if mode == "ai":
                 ai_entities = ai_anonymizer.detect(text, confidence)
                 entities = merge_entities(regex_entities, ai_entities)
             else:
                 entities = regex_entities
-            jobs[job_id]["progress"] = 90
-            jobs[job_id]["eta"] = _calc_eta(start_time, 90)
+            jobs_store.update(job_id, {"progress": 90, "eta": _calc_eta(start_time, 90)})
             output_dir = Path("backend/static/uploads")
             output_dir.mkdir(parents=True, exist_ok=True)
             original_filename = f"{uuid4().hex}_original_{filename}"
@@ -176,15 +165,13 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
             _anonymized_docx, regex_entities, mapping, text, original_docx = (
                 regex_anonymizer.anonymize_pdf(contents)
             )
-            jobs[job_id]["progress"] = 60
-            jobs[job_id]["eta"] = _calc_eta(start_time, 60)
+            jobs_store.update(job_id, {"progress": 60, "eta": _calc_eta(start_time, 60)})
             if mode == "ai":
                 ai_entities = ai_anonymizer.detect(text, confidence)
                 entities = merge_entities(regex_entities, ai_entities)
             else:
                 entities = regex_entities
-            jobs[job_id]["progress"] = 90
-            jobs[job_id]["eta"] = _calc_eta(start_time, 90)
+            jobs_store.update(job_id, {"progress": 90, "eta": _calc_eta(start_time, 90)})
             output_dir = Path("backend/static/uploads")
             output_dir.mkdir(parents=True, exist_ok=True)
             original_filename = f"{uuid4().hex}_original_{Path(filename).stem}.docx"
@@ -206,10 +193,10 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
                 "anonymized_url": f"/static/uploads/{anonymized_filename}",
                 "text": text,
             }
-        jobs[job_id]["entities_detected"] = len(entities)
-        jobs[job_id].update({"status": "completed", "progress": 100, "result": result, "eta": 0})
+        jobs_store.update(job_id, {"entities_detected": len(entities)})
+        jobs_store.update(job_id, {"status": "completed", "progress": 100, "result": result, "eta": 0})
     except Exception as exc:
-        jobs[job_id] = {"status": "error", "message": str(exc), "mode": mode, "entities_detected": 0, "eta": 0}
+        jobs_store.set(job_id, {"status": "error", "message": str(exc), "mode": mode, "entities_detected": 0, "eta": 0})
 
 
 @app.post("/upload")
@@ -222,13 +209,16 @@ async def upload_file(
     """Handle file upload asynchronously and return a job identifier."""
     contents = await file.read()
     job_id = uuid4().hex
-    jobs[job_id] = {
-        "status": "processing",
-        "progress": 0,
-        "mode": mode,
-        "entities_detected": 0,
-        "eta": None,
-    }
+    jobs_store.set(
+        job_id,
+        {
+            "status": "processing",
+            "progress": 0,
+            "mode": mode,
+            "entities_detected": 0,
+            "eta": None,
+        },
+    )
     background_tasks.add_task(_process_file, job_id, mode, confidence, contents, file.filename)
     return {"job_id": job_id}
 
@@ -246,7 +236,7 @@ def interface_page(request: Request):
 @app.get("/status/{job_id}")
 def get_status(job_id: str):
     """Return processing status for a given job id."""
-    job = jobs.get(job_id)
+    job = jobs_store.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job inconnu")
     # ensure anonymized_url is always present in the response when available
@@ -263,7 +253,7 @@ def get_status(job_id: str):
 @app.get("/entities/{job_id}")
 def list_entities(job_id: str) -> list[EntityModel]:
     """Return all stored entities for a job."""
-    return list(entities_db.get(job_id, {}).values())
+    return [EntityModel.parse_obj(e) for e in entities_store.list(job_id)]
 
 
 @app.post("/entities/{job_id}")
@@ -271,39 +261,37 @@ def create_entity(job_id: str, entity: EntityModel) -> EntityModel:
     """Create a new entity for a job."""
     if not entity.id:
         entity.id = uuid4().hex
-    job_entities = entities_db.setdefault(job_id, {})
-    job_entities[entity.id] = entity
+    entities_store.set_nested(job_id, entity.id, entity.dict())
     return entity
 
 
 @app.put("/entities/{job_id}/{entity_id}")
 def update_entity(job_id: str, entity_id: str, entity: EntityModel) -> EntityModel:
     """Update an existing entity for a job."""
-    job_entities = entities_db.setdefault(job_id, {})
-    if entity_id not in job_entities:
+    existing = entities_store.get_nested(job_id, entity_id)
+    if existing is None:
         raise HTTPException(status_code=404, detail="Entity not found")
     entity.id = entity_id
-    job_entities[entity_id] = entity
+    entities_store.set_nested(job_id, entity_id, entity.dict())
     return entity
 
 
 @app.delete("/entities/{job_id}/{entity_id}")
 def delete_entity(job_id: str, entity_id: str):
     """Remove an entity for a job and detach it from groups."""
-    job_entities = entities_db.get(job_id, {})
-    if entity_id in job_entities:
-        del job_entities[entity_id]
-    job_groups = groups_db.get(job_id, {})
+    entities_store.delete_nested(job_id, entity_id)
+    job_groups = groups_store.get(job_id, {})
     for group in job_groups.values():
-        if entity_id in group.entities:
-            group.entities.remove(entity_id)
+        if entity_id in group.get("entities", []):
+            group["entities"].remove(entity_id)
+    groups_store.set(job_id, job_groups)
     return {"status": "deleted"}
 
 
 @app.get("/groups/{job_id}")
 def list_groups(job_id: str) -> list[GroupModel]:
     """Return all groups for a job."""
-    return list(groups_db.get(job_id, {}).values())
+    return [GroupModel.parse_obj(g) for g in groups_store.list(job_id)]
 
 
 @app.post("/groups/{job_id}")
@@ -311,58 +299,59 @@ def create_group(job_id: str, group: GroupModel) -> GroupModel:
     """Create a new group for a job."""
     if not group.id:
         group.id = uuid4().hex
-    job_groups = groups_db.setdefault(job_id, {})
-    job_groups[group.id] = group
+    groups_store.set_nested(job_id, group.id, group.dict())
     return group
 
 
 @app.put("/groups/{job_id}/{group_id}")
 def update_group(job_id: str, group_id: str, group: GroupModel) -> GroupModel:
     """Update group information for a job."""
-    job_groups = groups_db.setdefault(job_id, {})
-    if group_id not in job_groups:
+    existing = groups_store.get_nested(job_id, group_id)
+    if existing is None:
         raise HTTPException(status_code=404, detail="Group not found")
     group.id = group_id
-    job_groups[group_id] = group
-    job_entities = entities_db.setdefault(job_id, {})
+    groups_store.set_nested(job_id, group_id, group.dict())
+    # update entities with group assignment
+    job_entities = entities_store.get(job_id, {})
     for ent_id in group.entities:
-        if ent_id in job_entities:
-            job_entities[ent_id].group_id = group_id
+        ent = job_entities.get(ent_id)
+        if ent is not None:
+            ent["group_id"] = group_id
+    entities_store.set(job_id, job_entities)
     return group
 
 
 @app.delete("/groups/{job_id}/{group_id}")
 def delete_group(job_id: str, group_id: str):
     """Delete a group for a job and clear group assignments."""
-    job_groups = groups_db.get(job_id, {})
-    if group_id in job_groups:
-        del job_groups[group_id]
-    job_entities = entities_db.get(job_id, {})
+    groups_store.delete_nested(job_id, group_id)
+    job_entities = entities_store.get(job_id, {})
     for ent in job_entities.values():
-        if ent.group_id == group_id:
-            ent.group_id = None
+        if ent.get("group_id") == group_id:
+            ent["group_id"] = None
+    entities_store.set(job_id, job_entities)
     return {"status": "deleted"}
 
 
 @app.post("/groups/{job_id}/{group_id}/entities/{entity_id}")
 def add_entity_to_group(job_id: str, group_id: str, entity_id: str) -> GroupModel:
     """Assign an entity to a group for a job."""
-    job_groups = groups_db.get(job_id, {})
-    job_entities = entities_db.get(job_id, {})
-    group = job_groups.get(group_id)
-    entity = job_entities.get(entity_id)
+    group = groups_store.get_nested(job_id, group_id)
+    entity = entities_store.get_nested(job_id, entity_id)
     if not group or not entity:
         raise HTTPException(status_code=404, detail="Not found")
-    if entity_id not in group.entities:
-        group.entities.append(entity_id)
-    entity.group_id = group_id
-    return group
+    if entity_id not in group.get("entities", []):
+        group.setdefault("entities", []).append(entity_id)
+    groups_store.set_nested(job_id, group_id, group)
+    entity["group_id"] = group_id
+    entities_store.set_nested(job_id, entity_id, entity)
+    return GroupModel.parse_obj(group)
 
 
 @app.get("/semantic-search/{job_id}")
 def semantic_search(job_id: str, q: str):
     """Return words similar to the query using a simple fuzzy match."""
-    job = jobs.get(job_id)
+    job = jobs_store.get(job_id)
     if not job or "result" not in job or "text" not in job["result"]:
         raise HTTPException(status_code=404, detail="Job inconnu")
     text = job["result"]["text"]
@@ -374,7 +363,7 @@ def semantic_search(job_id: str, q: str):
 @app.post("/export/{job_id}")
 async def export_job(job_id: str, opts: ExportOptions):
     """Apply export options such as watermark and audit report."""
-    job = jobs.get(job_id)
+    job = jobs_store.get(job_id)
     if not job or "result" not in job:
         raise HTTPException(status_code=404, detail="Job inconnu")
     result = job["result"]
@@ -383,7 +372,7 @@ async def export_job(job_id: str, opts: ExportOptions):
         raise HTTPException(status_code=404, detail="Document non trouvé")
     data = src_path.read_bytes()
     mapping = result.get("mapping", [])
-    stored = list(entities_db.get(job_id, {}).values())
+    stored = [EntityModel.parse_obj(e) for e in entities_store.list(job_id)]
     if stored:
         entities = [
             Entity(
