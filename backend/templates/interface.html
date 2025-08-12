@@ -381,9 +381,10 @@
                                 <div class="space-y-1">
                                     <div v-for="entityId in grp.entities" :key="entityId"
                                          class="text-xs p-2 bg-gray-50 rounded border">
-                                        {{ getEntityById(entityId)?.value || 'Entité inconnue' }}
+                                        <span v-if="getEntityById(entityId)">{{ getEntityById(entityId).value }}</span>
+                                        <span v-else>Entité inconnue</span>
                                         <span class="text-gray-500 ml-2">
-                                            ({{ getEntityById(entityId)?.type || '?' }})
+                                            (<span v-if="getEntityById(entityId)">{{ getEntityById(entityId).type }}</span><span v-else>?</span>)
                                         </span>
                                     </div>
                                 </div>
