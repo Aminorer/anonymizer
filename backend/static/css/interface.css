@@ -28,3 +28,13 @@
   padding: 20px;
   border-radius: 4px;
 }
+
+.pdf-page {
+  position: relative;
+}
+
+.pdf-highlight {
+  position: absolute;
+  background: rgba(255, 255, 0, 0.5);
+  pointer-events: none;
+}

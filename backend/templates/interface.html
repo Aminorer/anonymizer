@@ -14,6 +14,9 @@
       <button @click="changeView('anonymized')">Anonymisé</button>
       <button @click="zoomIn">Zoom +</button>
       <button @click="zoomOut">Zoom -</button>
+      <button @click="prevPage">Précédent</button>
+      <button @click="nextPage">Suivant</button>
+      <span>{{ currentPage }} / {{ totalPages }}</span>
     </div>
     <div class="container">
       <div id="viewer" class="viewer"></div>

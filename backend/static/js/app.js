@@ -72,6 +72,8 @@
       const view = ref('anonymized');
       const docType = ref('');
       const zoom = ref(1);
+      const currentPage = ref(1);
+      const totalPages = ref(1);
       const activeTab = ref('entities');
       const searchTerm = ref('');
       const searchType = ref('text');
@@ -86,6 +88,12 @@
       const rules = ref({ regex_rules: [], ner: { confidence: 0.5 }, styles: {} });
       const newRegex = ref({ pattern: '', replacement: '' });
       const newStyle = ref({ type: '', style: '' });
+
+      const applyZoom = () => {
+        const container = document.getElementById('viewer');
+        container.style.transform = `scale(${zoom.value})`;
+        container.style.transformOrigin = 'top left';
+      };
 
       const entityStore = useEntityStore();
       const groupStore = useGroupStore();
@@ -141,41 +149,89 @@
       const clearViewer = () => {
         const container = document.getElementById('viewer');
         container.innerHTML = '';
-        container.style.transform = `scale(${zoom.value})`;
-        container.style.transformOrigin = 'top left';
+      };
+
+      const showPage = (num) => {
+        document.querySelectorAll('.pdf-page').forEach((el, idx) => {
+          el.style.display = idx + 1 === num ? 'block' : 'none';
+        });
+      };
+
+      const renderPdfPages = async (url) => {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const loadingTask = pdfjsLib.getDocument(url);
+        const pdf = await loadingTask.promise;
+        totalPages.value = pdf.numPages;
+        const container = document.getElementById('viewer');
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1 });
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          const pageDiv = document.createElement('div');
+          pageDiv.className = 'pdf-page';
+          pageDiv.dataset.page = i;
+          if (i !== currentPage.value) pageDiv.style.display = 'none';
+          pageDiv.appendChild(canvas);
+          container.appendChild(pageDiv);
+          await page.render({ canvasContext: ctx, viewport }).promise;
+        }
+        showPage(currentPage.value);
+      };
+
+      const highlightPdfEntities = () => {
+        if (!status.value || !status.value.entities) return false;
+        let hasCoords = false;
+        status.value.entities.forEach((ent) => {
+          if (
+            ent.page === undefined ||
+            ent.x === undefined ||
+            ent.y === undefined ||
+            ent.width === undefined ||
+            ent.height === undefined
+          )
+            return;
+          hasCoords = true;
+          const pageDiv = document.querySelector(`.pdf-page[data-page='${ent.page}']`);
+          if (!pageDiv) return;
+          const box = document.createElement('div');
+          box.className = 'pdf-highlight';
+          box.style.left = `${ent.x}px`;
+          box.style.top = `${ent.y}px`;
+          box.style.width = `${ent.width}px`;
+          box.style.height = `${ent.height}px`;
+          pageDiv.appendChild(box);
+        });
+        return hasCoords;
       };
 
       const renderDoc = async () => {
+        const prev = currentPage.value;
         clearViewer();
-        const container = document.getElementById('viewer');
         if (docType.value === 'pdf') {
-          if (view.value === 'original') {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            const loadingTask = pdfjsLib.getDocument(status.value.original_url);
-            const pdf = await loadingTask.promise;
-            const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: zoom.value });
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            container.appendChild(canvas);
-            await page.render({ canvasContext: ctx, viewport }).promise;
-          } else {
-            const pre = document.createElement('pre');
-            pre.textContent = status.value.text;
-            pre.style.transform = `scale(${zoom.value})`;
-            pre.style.transformOrigin = 'top left';
-            container.appendChild(pre);
-            applyEntitySpans();
+          currentPage.value = prev;
+          const url =
+            view.value === 'original'
+              ? status.value.original_url
+              : status.value.anonymized_url || status.value.original_url;
+          await renderPdfPages(url);
+          if (view.value === 'anonymized') {
+            const ok = highlightPdfEntities();
+            if (!ok && status.value.reconstructed_url) {
+              clearViewer();
+              await renderPdfPages(status.value.reconstructed_url);
+            }
           }
         } else if (docType.value === 'docx') {
           const url = view.value === 'original' ? status.value.original_url : status.value.download_url;
           const buffer = await fetch(url).then((r) => r.arrayBuffer());
+          const container = document.getElementById('viewer');
           await docx.renderAsync(buffer, container);
-          container.style.transform = `scale(${zoom.value})`;
           applyEntitySpans();
         }
+        applyZoom();
       };
 
       const applyEntitySpans = () => {
@@ -219,13 +275,26 @@
         await renderDoc();
       };
 
-      const zoomIn = async () => {
+      const zoomIn = () => {
         zoom.value += 0.1;
-        await renderDoc();
+        applyZoom();
       };
-      const zoomOut = async () => {
+      const zoomOut = () => {
         zoom.value = Math.max(0.1, zoom.value - 0.1);
-        await renderDoc();
+        applyZoom();
+      };
+
+      const nextPage = () => {
+        if (currentPage.value < totalPages.value) {
+          currentPage.value += 1;
+          showPage(currentPage.value);
+        }
+      };
+      const prevPage = () => {
+        if (currentPage.value > 1) {
+          currentPage.value -= 1;
+          showPage(currentPage.value);
+        }
       };
 
       const search = async () => {
@@ -335,6 +404,10 @@
         changeView,
         zoomIn,
         zoomOut,
+        currentPage,
+        totalPages,
+        nextPage,
+        prevPage,
         activeTab,
         entities,
         highlightEntity,
