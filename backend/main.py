@@ -150,14 +150,19 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
             output_dir = Path("backend/static/uploads")
             output_dir.mkdir(parents=True, exist_ok=True)
             original_filename = f"{uuid4().hex}_original_{filename}"
+            anonymized_filename = f"{uuid4().hex}_anonymized_{filename}"
             original_path = output_dir / original_filename
+            anonymized_path = output_dir / anonymized_filename
             with open(original_path, "wb") as f:
                 f.write(contents)
+            with open(anonymized_path, "wb") as f:
+                f.write(_anonymized)
             result = {
                 "filename": filename,
                 "entities": [e.__dict__ for e in entities],
                 "mapping": mapping,
                 "original_url": f"/static/uploads/{original_filename}",
+                "anonymized_url": f"/static/uploads/{anonymized_filename}",
             }
         else:
             _anonymized_docx, regex_entities, mapping, text, original_docx = (
@@ -175,14 +180,19 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
             output_dir = Path("backend/static/uploads")
             output_dir.mkdir(parents=True, exist_ok=True)
             original_filename = f"{uuid4().hex}_original_{Path(filename).stem}.docx"
+            anonymized_filename = f"{uuid4().hex}_anonymized_{Path(filename).stem}.docx"
             original_path = output_dir / original_filename
+            anonymized_path = output_dir / anonymized_filename
             with open(original_path, "wb") as f:
                 f.write(original_docx)
+            with open(anonymized_path, "wb") as f:
+                f.write(_anonymized_docx)
             result = {
                 "filename": f"{Path(filename).stem}.docx",
                 "entities": [e.__dict__ for e in entities],
                 "mapping": mapping,
                 "original_url": f"/static/uploads/{original_filename}",
+                "anonymized_url": f"/static/uploads/{anonymized_filename}",
                 "text": text,
             }
         jobs[job_id]["entities_detected"] = len(entities)
@@ -228,6 +238,10 @@ def get_status(job_id: str):
     job = jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job inconnu")
+    # ensure anonymized_url is always present in the response when available
+    result = job.get("result")
+    if result is not None and "anonymized_url" not in result:
+        result["anonymized_url"] = None
     return job
 
 
