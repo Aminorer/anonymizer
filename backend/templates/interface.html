@@ -284,7 +284,8 @@
                                        :checked="selected.length === entities.length && entities.length > 0"
                                        class="mr-2 rounded">
                                 <span class="text-sm text-gray-600">
-                                    {{ selected.length > 0 ? `${selected.length} sélectionnée(s)` : `${entities.length} entité(s)` }}
+                                    <span v-if="selected.length > 0">{{ selected.length }} sélectionnée(s)</span>
+                                    <span v-else>{{ entities.length }} entité(s)</span>
                                 </span>
                             </div>
                             
@@ -944,17 +945,20 @@
         function addSelectionAsEntity() {
             const entityType = document.getElementById('entity-type-select').value;
             if (selectedText && entityType) {
-                // Add to Vue app's entities
-                const app = document.getElementById('app').__vue_app__.config.globalProperties;
-                app.entityStore.add({
-                    id: crypto.randomUUID(),
-                    type: entityType,
-                    value: selectedText,
-                    replacement: '',
-                    start: 0,
-                    end: 0,
-                    page: app.currentPage
-                });
+                // Get Vue app instance from the mounted component
+                const appInstance = document.getElementById('app').__vue_app__;
+                if (appInstance) {
+                    const entityStore = appInstance._instance.provides.pinia.state.value.entities;
+                    entityStore.add({
+                        id: crypto.randomUUID(),
+                        type: entityType,
+                        value: selectedText,
+                        replacement: '',
+                        start: 0,
+                        end: 0,
+                        page: 1
+                    });
+                }
                 hideFloatingMenu();
                 window.getSelection().removeAllRanges();
             }
@@ -1379,13 +1383,8 @@
                             const text = container.textContent || '';
                             const regex = searchType.value === 'regex' ? 
                                 new RegExp(searchTerm.value, 'gi') :
-                                new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g, '\\        // Toast notification system
-        function showToast(message, type = 'info') {
-            const toast = document.createElement('div');
-            const iconClass = type === 'success' ? 'fa-check-circle text-green-600' : 
-                             type === 'error' ? 'fa-exclamation-triangle text-red-600' : 
-                             'fa-info-circle text-blue-600';
-            const bgClass = type === 'success' ? 'bg-green-50 border-green-200''), 'gi');
+                                new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g, '\\                    entityStore.items = prev.entities;
+                    groupStore.items = prev.groups;'), 'gi');
                             
                             const matches = [];
                             let match;
@@ -1426,13 +1425,8 @@
 
                     const regex = searchType.value === 'regex' ? 
                         new RegExp(searchTerm.value, 'gi') :
-                        new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g, '\\        // Toast notification system
-        function showToast(message, type = 'info') {
-            const toast = document.createElement('div');
-            const iconClass = type === 'success' ? 'fa-check-circle text-green-600' : 
-                             type === 'error' ? 'fa-exclamation-triangle text-red-600' : 
-                             'fa-info-circle text-blue-600';
-            const bgClass = type === 'success' ? 'bg-green-50 border-green-200''), 'gi');
+                        new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g, '\\                    entityStore.items = prev.entities;
+                    groupStore.items = prev.groups;'), 'gi');
 
                     nodes.forEach((n) => {
                         const text = n.textContent;
