@@ -178,7 +178,7 @@ def _process_file(job_id: str, mode: str, confidence: float, contents: bytes, fi
 async def upload_file(
     background_tasks: BackgroundTasks,
     mode: str = Form(...),
-    confidence: float = Form(0.5),
+    confidence: float = Form(ai_anonymizer.confidence),
     file: UploadFile = File(...),
 ):
     """Handle file upload asynchronously and return a job identifier."""
