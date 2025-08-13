@@ -255,12 +255,16 @@
             return true;
         }
 
-        function showError(message) {
-            errorText.textContent = message;
-            errorMessage.classList.remove('hidden');
-            setTimeout(() => {
-                errorMessage.classList.add('hidden');
-            }, 5000);
+        function showError(message, critical = false) {
+            if (critical) {
+                errorText.textContent = message;
+                errorMessage.classList.remove('hidden');
+                setTimeout(() => {
+                    errorMessage.classList.add('hidden');
+                }, 5000);
+            } else {
+                console.log(`Validation: ${message}`);
+            }
         }
 
         function hideError() {

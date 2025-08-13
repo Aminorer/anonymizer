@@ -484,11 +484,20 @@
             </div>
         </div>
 
+        <!-- AJOUTER dans le footer, après les boutons existants -->
+        <div class="flex items-center space-x-2 ml-4">
+            <button @click="toastService.showManual('Test notification', 'info')" 
+                    class="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
+                <i class="fas fa-bell mr-1"></i>Notifications
+            </button>
+        </div>
+
         <!-- Toast Container pour les notifications -->
         <div id="toast-container" class="fixed top-4 right-4 space-y-2 z-50"></div>
     </div>
 
     <!-- Scripts externes -->
+    <script src="/static/js/config.js"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://unpkg.com/pinia@2/dist/pinia.iife.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>

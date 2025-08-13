@@ -194,7 +194,7 @@
                         selected: false,
                         ...entity
                     }));
-                    toastService.success(`${this.items.length} entités chargées`);
+                    console.log('Entité ajoutée avec succès');
                 } catch (error) {
                     this.error = error.message;
                     toastService.error('Erreur lors du chargement des entités');
@@ -266,7 +266,7 @@
                     }
 
                     this.items = this.items.filter(item => item.id !== entityId);
-                    toastService.success('Entité supprimée');
+                    console.log('Entité supprimée');
                 } catch (error) {
                     toastService.error('Erreur lors de la suppression');
                     console.error('Entity remove error:', error);
@@ -278,7 +278,7 @@
                 const promises = entityIds.map(id => this.remove(jobId, id));
                 try {
                     await Promise.all(promises);
-                    toastService.success(`${entityIds.length} entités supprimées`);
+                    console.log(`${entityIds.length} entités supprimées`);
                 } catch (error) {
                     console.error('Multiple entity remove error:', error);
                 }
@@ -1191,18 +1191,17 @@
                         }
 
                         await renderDocument();
-                        toastService.success('Document chargé avec succès');
+                        console.log('Document chargé avec succès');
 
                         // AUCUNE OUVERTURE AUTOMATIQUE DE MODAL ICI
 
                     } catch (error) {
                         console.error('Load job status error:', error);
-                        toastService.error('Erreur lors du chargement du document');
                         
                         // Redirect to home after error
                         setTimeout(() => {
                             window.location.href = '/';
-                        }, 3000);
+                        }, 1000);
                     } finally {
                         appStore.loading = false;
                     }

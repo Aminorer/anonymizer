@@ -175,10 +175,7 @@
             });
             event.target.closest('.mode-card').classList.add('selected');
 
-            this.showNotification(
-                `Mode ${isAIMode ? 'IA' : 'Regex'} sélectionné`, 
-                'info'
-            );
+            console.log(`Mode ${isAIMode ? 'IA' : 'Regex'} sélectionné`);
         }
 
         handleConfidenceChange(event) {
@@ -292,7 +289,7 @@
                 const data = await response.json();
 
                 if (data.job_id) {
-                    this.showNotification('Fichier envoyé avec succès', 'success');
+                    console.log('Fichier envoyé avec succès');
                     
                     // Redirection avec un petit délai pour l'animation
                     setTimeout(() => {
