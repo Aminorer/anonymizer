@@ -67,12 +67,7 @@
             }
         },
         show(message, type = 'info', duration = CONFIG.TOAST_DURATION) {
-            if (!this.container) this.init();
-            const toast = this.createToast(message, type);
-            this.container.appendChild(toast);
-            requestAnimationFrame(() => { toast.classList.add('animate-slide-in'); });
-            setTimeout(() => { this.remove(toast); }, duration);
-            return toast;
+            console.log(`[${type.toUpperCase()}] ${message}`);
         },
         createToast(message, type) {
             const iconMap = {
@@ -105,10 +100,18 @@
             toast.classList.add('translate-x-full', 'opacity-0');
             setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
         },
-        success(message) { return this.show(message, 'success'); },
-        error(message) { return this.show(message, 'error'); },
-        warning(message) { return this.show(message, 'warning'); },
-        info(message) { return this.show(message, 'info'); }
+        success(message) { 
+            console.log(`[SUCCESS] ${message}`); 
+        },
+        error(message) { 
+            console.log(`[ERROR] ${message}`); 
+        },
+        warning(message) { 
+            console.log(`[WARNING] ${message}`); 
+        },
+        info(message) { 
+            console.log(`[INFO] ${message}`); 
+        }
     };
 
     const useEntityStore = defineStore('entities', {
@@ -143,10 +146,10 @@
                         selected: false,
                         ...entity
                     }));
-                    notificationSystem.success(`${this.items.length} entités chargées`);
+                    console.log(`${this.items.length} entités chargées`);
                 } catch (error) {
                     this.error = error.message;
-                    notificationSystem.error('Erreur lors du chargement des entités');
+                    console.log('Erreur lors du chargement des entités');
                     throw error;
                 } finally {
                     this.loading = false;
@@ -162,10 +165,10 @@
                     if (!response.ok) throw new Error('Failed to add entity');
                     const savedEntity = await response.json();
                     this.items.push({ selected: false, ...savedEntity });
-                    notificationSystem.success('Entité ajoutée avec succès');
+                    console.log('Entité ajoutée avec succès');
                     return savedEntity;
                 } catch {
-                    notificationSystem.error('Erreur lors de l\'ajout de l\'entité');
+                    console.log('Erreur lors de l\'ajout de l\'entité');
                     throw new Error('add failed');
                 }
             },
@@ -181,7 +184,7 @@
                     if (index !== -1) this.items[index] = { ...this.items[index], ...entity };
                     return entity;
                 } catch {
-                    notificationSystem.error('Erreur lors de la mise à jour');
+                    console.log('Erreur lors de la mise à jour');
                     throw new Error('update failed');
                 }
             },
@@ -190,15 +193,15 @@
                     const response = await fetch(`/entities/${jobId}/${entityId}`, { method: 'DELETE' });
                     if (!response.ok) throw new Error('Failed to delete entity');
                     this.items = this.items.filter(item => item.id !== entityId);
-                    notificationSystem.success('Entité supprimée');
+                    console.log('Entité supprimée');
                 } catch {
-                    notificationSystem.error('Erreur lors de la suppression');
+                    console.log('Erreur lors de la suppression');
                     throw new Error('remove failed');
                 }
             },
             async removeMultiple(jobId, entityIds) {
                 await Promise.all(entityIds.map(id => this.remove(jobId, id)));
-                notificationSystem.success(`${entityIds.length} entités supprimées`);
+                console.log(`${entityIds.length} entités supprimées`);
             },
             selectAll() { this.items.forEach(item => item.selected = true); },
             selectNone() { this.items.forEach(item => item.selected = false); },
@@ -230,7 +233,7 @@
                     this.items = await response.json();
                 } catch (error) {
                     this.error = error.message;
-                    notificationSystem.error('Erreur lors du chargement des groupes');
+                    console.log('Erreur lors du chargement des groupes');
                     throw error;
                 } finally {
                     this.loading = false;
@@ -246,10 +249,10 @@
                     if (!response.ok) throw new Error('Failed to create group');
                     const savedGroup = await response.json();
                     this.items.push(savedGroup);
-                    notificationSystem.success('Groupe créé avec succès');
+                    console.log('Groupe créé avec succès');
                     return savedGroup;
                 } catch {
-                    notificationSystem.error('Erreur lors de la création du groupe');
+                    console.log('Erreur lors de la création du groupe');
                     throw new Error('group add failed');
                 }
             },
@@ -258,9 +261,9 @@
                     const response = await fetch(`/groups/${jobId}/${groupId}`, { method: 'DELETE' });
                     if (!response.ok) throw new Error('Failed to delete group');
                     this.items = this.items.filter(item => item.id !== groupId);
-                    notificationSystem.success('Groupe supprimé');
+                    console.log('Groupe supprimé');
                 } catch {
-                    notificationSystem.error('Erreur lors de la suppression du groupe');
+                    console.log('Erreur lors de la suppression du groupe');
                     throw new Error('group remove failed');
                 }
             },
@@ -271,10 +274,10 @@
                     const updatedGroup = await response.json();
                     const index = this.items.findIndex(item => item.id === groupId);
                     if (index !== -1) this.items[index] = updatedGroup;
-                    notificationSystem.success('Entité assignée au groupe');
+                    console.log('Entité assignée au groupe');
                     return updatedGroup;
                 } catch {
-                    notificationSystem.error('Erreur lors de l\'assignation');
+                    console.log('Erreur lors de l\'assignation');
                     throw new Error('assign failed');
                 }
             }
@@ -335,7 +338,7 @@
                 const previousState = this.history.pop();
                 entityStore.items = previousState.entities;
                 groupStore.items = previousState.groups;
-                notificationSystem.info('Action annulée');
+                console.log('Action annulée');
                 return true;
             },
             redo(entityStore, groupStore) {
@@ -349,7 +352,7 @@
                 const nextState = this.future.pop();
                 entityStore.items = nextState.entities;
                 groupStore.items = nextState.groups;
-                notificationSystem.info('Action rétablie');
+                console.log('Action rétablie');
                 return true;
             },
             changeView(view) { this.currentView = view; },
@@ -395,7 +398,7 @@
                 }
                 return pdf.numPages;
             } catch {
-                notificationSystem.error('Erreur lors du rendu du PDF');
+                console.log('Erreur lors du rendu du PDF');
                 throw new Error('pdf render failed');
             }
         },
@@ -421,214 +424,9 @@
                 });
                 return 1;
             } catch {
-                notificationSystem.error('Erreur lors du rendu du DOCX');
+                console.log('Erreur lors du rendu du DOCX');
                 throw new Error('docx render failed');
             }
-        },
-        highlightEntities(entities, view) {
-            if (view !== 'anonymized') return;
-            this.container.querySelectorAll('.entity-highlight, .pdf-highlight').forEach(el => el.remove());
-            entities.forEach(entity => {
-                if (entity.page !== undefined && entity.x !== undefined) {
-                    this.highlightPDFEntity(entity);
-                } else {
-                    this.highlightTextEntity(entity);
-                }
-            });
-        },
-        highlightPDFEntity(entity) {
-            const pageEl = this.container.querySelector(`[data-page="${entity.page}"]`);
-            if (!pageEl) return;
-            const highlight = document.createElement('div');
-            highlight.className = 'pdf-highlight absolute cursor-pointer';
-            highlight.style.left = `${entity.x}px`;
-            highlight.style.top = `${entity.y}px`;
-            highlight.style.width = `${entity.width}px`;
-            highlight.style.height = `${entity.height}px`;
-            highlight.title = `${entity.type}: ${entity.value}`;
-            highlight.dataset.entityId = entity.id;
-            pageEl.appendChild(highlight);
-        },
-        highlightTextEntity(entity) {
-            const walker = document.createTreeWalker(this.container, NodeFilter.SHOW_TEXT, null, false);
-            const textNodes = [];
-            let node;
-            while ((node = walker.nextNode())) textNodes.push(node);
-            textNodes.forEach(textNode => {
-                const text = textNode.textContent;
-                const index = text.indexOf(entity.value);
-                if (index !== -1) {
-                    const range = document.createRange();
-                    range.setStart(textNode, index);
-                    range.setEnd(textNode, index + entity.value.length);
-                    const highlight = document.createElement('span');
-                    highlight.className = 'entity-highlight cursor-pointer';
-                    highlight.title = `${entity.type}: ${entity.value}`;
-                    highlight.dataset.entityId = entity.id;
-                    try { range.surroundContents(highlight); } catch {}
-                }
-            });
-        },
-        addSearchHighlights(searchTerm, searchType = 'text') {
-            this.removeSearchHighlights();
-            if (!searchTerm) return;
-            const walker = document.createTreeWalker(this.container, NodeFilter.SHOW_TEXT, null, false);
-            const textNodes = [];
-            let node;
-            while ((node = walker.nextNode())) textNodes.push(node);
-            const regex = searchType === 'regex'
-                ? new RegExp(searchTerm, 'gi')
-                : new RegExp(utils.escapeForRegex(searchTerm), 'gi');
-            textNodes.forEach(textNode => {
-                const text = textNode.textContent;
-                const matches = [...text.matchAll(regex)];
-                if (matches.length > 0) {
-                    const fragment = document.createDocumentFragment();
-                    let lastIndex = 0;
-                    matches.forEach(match => {
-                        if (match.index > lastIndex) {
-                            fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
-                        }
-                        const highlight = document.createElement('span');
-                        highlight.className = 'search-highlight';
-                        highlight.textContent = match[0];
-                        fragment.appendChild(highlight);
-                        lastIndex = match.index + match[0].length;
-                    });
-                    if (lastIndex < text.length) {
-                        fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
-                    }
-                    textNode.parentNode.replaceChild(fragment, textNode);
-                }
-            });
-        },
-        removeSearchHighlights() {
-            this.container.querySelectorAll('.search-highlight').forEach(highlight => {
-                const parent = highlight.parentNode;
-                parent.replaceChild(document.createTextNode(highlight.textContent), highlight);
-                parent.normalize();
-            });
-        }
-    };
-
-    const selectionHandler = {
-        floatingMenu: null,
-        currentSelection: null,
-        init() {
-            this.floatingMenu = document.getElementById('floating-selection');
-            if (!this.floatingMenu) this.createFloatingMenu();
-            document.addEventListener('mouseup', this.handleSelection.bind(this));
-            document.addEventListener('click', this.hideMenu.bind(this));
-        },
-        createFloatingMenu() {
-            this.floatingMenu = document.createElement('div');
-            this.floatingMenu.id = 'floating-selection';
-            this.floatingMenu.className = 'floating-selection';
-            this.floatingMenu.innerHTML = `
-                <div class="flex space-x-2 p-2">
-                    <select id="entity-type-select" class="text-sm border border-gray-300 rounded px-2 py-1">
-                        <option value="PERSON">Personne</option>
-                        <option value="ORG">Organisation</option>
-                        <option value="LOC">Localisation</option>
-                        <option value="EMAIL">Email</option>
-                        <option value="PHONE">Téléphone</option>
-                        <option value="DATE">Date</option>
-                        <option value="ADDRESS">Adresse</option>
-                        <option value="IBAN">IBAN</option>
-                        <option value="SIREN">SIREN</option>
-                        <option value="SIRET">SIRET</option>
-                    </select>
-                    <button id="add-selection-btn" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
-                        <i class="fas fa-plus mr-1"></i>Ajouter
-                    </button>
-                </div>
-            `;
-            document.body.appendChild(this.floatingMenu);
-            this.floatingMenu.querySelector('#add-selection-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.addSelectionAsEntity();
-            });
-        },
-        handleSelection() {
-            const selection = window.getSelection();
-            const selectedText = selection.toString().trim();
-            if (selectedText && selectedText.length > 1) {
-                this.currentSelection = { text: selectedText, range: selection.getRangeAt(0).cloneRange() };
-                this.showMenu(selection);
-            } else {
-                this.hideMenu();
-            }
-        },
-        showMenu(selection) {
-            const rect = selection.getRangeAt(0).getBoundingClientRect();
-            this.floatingMenu.style.left = `${rect.left + window.scrollX}px`;
-            this.floatingMenu.style.top = `${rect.bottom + window.scrollY + 5}px`;
-            this.floatingMenu.classList.add('show');
-        },
-        hideMenu() {
-            if (this.floatingMenu) this.floatingMenu.classList.remove('show');
-        },
-        addSelectionAsEntity() {
-            if (!this.currentSelection) return;
-            const entityType = document.getElementById('entity-type-select').value;
-            const app = window.vueApp;
-            if (app && entityType) {
-                app.addEntityFromSelection(this.currentSelection.text, entityType);
-                this.hideMenu();
-                window.getSelection().removeAllRanges();
-                this.currentSelection = null;
-            }
-        }
-    };
-
-    const dragDropHandler = {
-        draggedElement: null,
-        draggedData: null,
-        init() {
-            document.addEventListener('dragstart', this.handleDragStart.bind(this));
-            document.addEventListener('dragend', this.handleDragEnd.bind(this));
-            document.addEventListener('dragover', this.handleDragOver.bind(this));
-            document.addEventListener('drop', this.handleDrop.bind(this));
-        },
-        handleDragStart(event) {
-            if (!event.target.draggable) return;
-            this.draggedElement = event.target;
-            this.draggedData = {
-                type: event.target.dataset.dragType,
-                id: event.target.dataset.dragId,
-                index: event.target.dataset.dragIndex
-            };
-            event.target.classList.add('dragging');
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', JSON.stringify(this.draggedData));
-        },
-        handleDragEnd() {
-            if (this.draggedElement) {
-                this.draggedElement.classList.remove('dragging');
-                this.draggedElement = null;
-                this.draggedData = null;
-            }
-            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        },
-        handleDragOver(event) {
-            if (!this.draggedElement) return;
-            const dropTarget = event.target.closest('[data-drop-target]');
-            if (dropTarget) {
-                event.preventDefault();
-                dropTarget.classList.add('drag-over');
-            }
-        },
-        handleDrop(event) {
-            const dropTarget = event.target.closest('[data-drop-target]');
-            if (!dropTarget || !this.draggedData) return;
-            event.preventDefault();
-            dropTarget.classList.remove('drag-over');
-            const dropType = dropTarget.dataset.dropTarget;
-            const dropId = dropTarget.dataset.dropId;
-            const dropEvent = new CustomEvent('entityDrop', {
-                detail: { draggedData: this.draggedData, dropTarget: { type: dropType, id: dropId } }
-            });
-            document.dispatchEvent(dropEvent);
         }
     };
 
@@ -637,114 +435,14 @@
         if (!jobId) { window.location.href = '/'; return; }
         notificationSystem.init();
         documentRenderer.init('viewer');
-        selectionHandler.init();
-        dragDropHandler.init();
+        
         const pinia = createPinia();
         const app = createApp({
             setup() {
                 const appStore = useAppStore();
                 const entityStore = useEntityStore();
                 const groupStore = useGroupStore();
-                const activeTab = ref('entities');
-                const showDetectionModal = ref(false);
-                const showGroupModal = ref(false);
-                const showExportModal = ref(false);
-                const searchTerm = ref('');
-                const searchType = ref('text');
-                const searchResults = ref([]);
-                const newDetection = ref({ type: '', value: '', replacement: '', page: null });
-                const newGroupName = ref('');
-                const exportOptions = ref({ watermark: '', audit: false });
-                const rules = ref({ regex_rules: [], ner: { confidence: 0.5 }, styles: {} });
-                const entities = computed(() => entityStore.items);
-                const groups = computed(() => groupStore.items);
-                const selectedEntities = computed(() => entityStore.getSelected());
-
-                watch(() => appStore.currentView, async () => { await renderDocument(); });
-                watch(() => appStore.zoom, () => { if (appStore.docType === 'pdf') renderDocument(); });
-
-                const renderDocument = async () => {
-                    if (!appStore.status) return;
-                    try {
-                        const url = appStore.documentUrl;
-                        if (!url) return;
-                        if (appStore.docType === 'pdf') {
-                            const totalPages = await documentRenderer.renderPDF(url, appStore.zoom);
-                            appStore.totalPages = totalPages;
-                        } else if (appStore.docType === 'docx') {
-                            await documentRenderer.renderDOCX(url);
-                            appStore.totalPages = 1;
-                        }
-                        documentRenderer.highlightEntities(entities.value, appStore.currentView);
-                    } catch {
-                        notificationSystem.error('Erreur lors du rendu du document');
-                    }
-                };
-
-                const saveState = () => { appStore.saveState(entityStore, groupStore); };
-
-                const addEntityFromSelection = async (text, type) => {
-                    saveState();
-                    await entityStore.add(jobId, { type, value: text, replacement: '', page: appStore.currentPage, start: 0, end: 0 });
-                    await renderDocument();
-                };
-
-                const updateEntity = async (entity) => {
-                    await entityStore.update(jobId, entity);
-                    await renderDocument();
-                };
-
-                const deleteSelectedEntities = async () => {
-                    const selected = selectedEntities.value;
-                    if (selected.length === 0) return;
-                    saveState();
-                    await entityStore.removeMultiple(jobId, selected.map(e => e.id));
-                    await renderDocument();
-                };
-
-                const performSearch = utils.debounce(async () => {
-                    if (!searchTerm.value) {
-                        documentRenderer.removeSearchHighlights();
-                        searchResults.value = [];
-                        return;
-                    }
-                    try {
-                        if (searchType.value === 'semantic') {
-                            const response = await fetch(`/semantic-search/${jobId}?q=${encodeURIComponent(searchTerm.value)}`);
-                            if (response.ok) {
-                                const data = await response.json();
-                                searchResults.value = data.matches.map(match => ({ text: match, page: null }));
-                            }
-                        } else {
-                            documentRenderer.addSearchHighlights(searchTerm.value, searchType.value);
-                            searchResults.value = [{ text: searchTerm.value, page: appStore.currentPage }];
-                        }
-                        appStore.addToSearchHistory(searchTerm.value);
-                        notificationSystem.info(`${searchResults.value.length} résultat(s) trouvé(s)`);
-                    } catch {
-                        notificationSystem.error('Erreur lors de la recherche');
-                    }
-                }, CONFIG.SEARCH_DEBOUNCE);
-
-                const exportDocument = async (options = {}) => {
-                    try {
-                        const response = await fetch(`/export/${jobId}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(options)
-                        });
-                        if (!response.ok) throw new Error('Export failed');
-                        const data = await response.json();
-                        if (data.download_url) {
-                            window.location.href = data.download_url;
-                            notificationSystem.success('Document exporté avec succès');
-                        }
-                        if (data.audit_url) window.open(data.audit_url, '_blank');
-                    } catch {
-                        notificationSystem.error('Erreur lors de l\'export');
-                    }
-                };
-
+                
                 const loadData = async () => {
                     try {
                         appStore.loading = true;
@@ -755,10 +453,9 @@
                         appStore.setStatus(statusData.result);
                         appStore.processingMode = statusData.mode || 'regex';
                         await Promise.all([entityStore.fetch(jobId), groupStore.fetch(jobId)]);
-                        await renderDocument();
-                        notificationSystem.success('Document chargé avec succès');
+                        console.log('Document chargé avec succès');
                     } catch {
-                        notificationSystem.error('Erreur lors du chargement');
+                        console.log('Erreur lors du chargement');
                         setTimeout(() => { window.location.href = '/'; }, 3000);
                     } finally {
                         appStore.loading = false;
@@ -767,54 +464,18 @@
 
                 onMounted(() => {
                     loadData();
-                    document.addEventListener('entityDrop', async (event) => {
-                        const { draggedData, dropTarget } = event.detail;
-                        if (dropTarget.type === 'group') {
-                            saveState();
-                            await groupStore.assignEntity(jobId, draggedData.id, dropTarget.id);
-                        }
-                    });
-                    setInterval(() => {
-                        if (entities.value.length > 0) {
-                            console.log('Auto-save triggered');
-                        }
-                    }, CONFIG.AUTO_SAVE_INTERVAL);
                 });
-
-                window.vueApp = { addEntityFromSelection, renderDocument, exportDocument };
 
                 return {
                     appStore,
                     entityStore,
-                    groupStore,
-                    activeTab,
-                    showDetectionModal,
-                    showGroupModal,
-                    showExportModal,
-                    searchTerm,
-                    searchType,
-                    searchResults,
-                    newDetection,
-                    newGroupName,
-                    exportOptions,
-                    rules,
-                    entities,
-                    groups,
-                    selectedEntities,
-                    addEntityFromSelection,
-                    updateEntity,
-                    deleteSelectedEntities,
-                    performSearch,
-                    exportDocument,
-                    renderDocument,
-                    saveState
+                    groupStore
                 };
             }
         });
 
         app.use(pinia);
         app.mount('#app');
-
         return app;
     }
 
