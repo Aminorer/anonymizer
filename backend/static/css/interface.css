@@ -1,40 +1,391 @@
-.viewer { border: 1px solid #ccc; height: 600px; overflow: auto; }
-.controls button { margin-right: 5px; }
-.container { display: flex; }
-.side-panel { width: 30%; border-left: 1px solid #ccc; padding-left: 10px; }
-.tabs { display: flex; margin-bottom: 10px; }
-.tabs button { flex: 1; padding: 5px; }
-.highlight { background: yellow; }
-.search-highlight { background: orange; }
-.entity-list { list-style: none; padding-left: 0; }
-.entity-list li { cursor: pointer; }
-.entity-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-.entity-table th, .entity-table td { border: 1px solid #ccc; padding: 4px; }
-.group-list { list-style: none; padding-left: 0; }
-.group-list li { border: 1px solid #ccc; padding: 4px; margin-bottom: 4px; cursor: move; }
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* Styles optimisés pour l'interface d'anonymisation */
+
+/* Suppression des animations d'ouverture automatique de popup */
+.modal-overlay {
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s ease;
 }
+
 .modal-content {
-  background: #fff;
-  padding: 20px;
-  border-radius: 4px;
+    animation: slideUp 0.3s ease;
+    box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1);
 }
 
-.pdf-page {
-  position: relative;
+/* Améliorations pour les boutons d'action */
+.action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
 }
 
-.pdf-highlight {
-  position: absolute;
-  background: rgba(255, 255, 0, 0.5);
-  pointer-events: none;
+.action-buttons button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.action-buttons button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Optimisation des boutons du footer */
+.footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.footer-actions .btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.footer-actions .btn-secondary:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+
+.footer-actions .btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    font-weight: 600;
+}
+
+.footer-actions .btn-primary:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* Amélioration des modals */
+.modal-enhanced {
+    max-width: 28rem;
+    width: 100%;
+    margin: 1rem;
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
+    padding: 1.5rem;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.modal-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+}
+
+.modal-icon.detection {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.modal-icon.group {
+    background: #f3e8ff;
+    color: #9333ea;
+}
+
+.modal-icon.export {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.modal-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #111827;
+    line-height: 1.2;
+}
+
+.modal-subtitle {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+/* Amélioration des champs de formulaire dans les modals */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.25rem;
+}
+
+.form-input-enhanced {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.form-input-enhanced:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-select-enhanced {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    background: white;
+    transition: all 0.2s ease;
+}
+
+.form-select-enhanced:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Options d'export améliorées */
+.export-option {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    transition: all 0.2s ease;
+}
+
+.export-option:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.export-option-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.export-option-icon {
+    margin-right: 0.75rem;
+    font-size: 1.125rem;
+}
+
+.export-option-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.export-option-description {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+.export-preview {
+    background: #f9fafb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.export-preview-title {
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.export-preview-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.export-preview-tag {
+    padding: 0.25rem 0.5rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    color: #374151;
+}
+
+/* Actions des modals */
+.modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.modal-actions .btn-primary {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.modal-actions .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.modal-actions .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.modal-actions .btn-secondary {
+    padding: 0.75rem 1rem;
+    background: #f3f4f6;
+    color: #374151;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.modal-actions .btn-secondary:hover {
+    background: #e5e7eb;
+}
+
+/* Animations pour les toasts */
+.animate-slide-in {
+    transform: translateX(0) !important;
+    opacity: 1 !important;
+}
+
+/* Responsive design pour les modals */
+@media (max-width: 640px) {
+    .modal-enhanced {
+        margin: 0.5rem;
+        max-width: calc(100vw - 1rem);
+    }
+    
+    .modal-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .modal-icon {
+        margin-right: 0;
+        margin-bottom: 1rem;
+    }
+    
+    .modal-actions {
+        flex-direction: column;
+    }
+    
+    .action-buttons {
+        grid-template-columns: 1fr;
+    }
+    
+    .footer-actions {
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+    }
+    
+    .footer-actions button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Animation pour les éléments de la liste d'entités */
+.entity-row {
+    animation: slideInUp 0.3s ease;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Focus states améliorés */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* États de survol pour les éléments interactifs */
+.interactive:hover {
+    transform: translateY(-1px);
+    transition: transform 0.2s ease;
+}
+
+/* Indicateurs de statut */
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-indicator.success {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.status-indicator.warning {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.status-indicator.error {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Améliorations pour les contrôles de zoom */
+.zoom-controls button {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.zoom-controls button:hover:not(:disabled) {
+    background: #f3f4f6;
+    transform: scale(1.05);
+}
+
+.zoom-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }

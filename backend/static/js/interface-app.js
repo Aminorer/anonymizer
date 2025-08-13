@@ -1,13 +1,93 @@
-escapeRegex(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\');
+/**
+ * Interface d'anonymisation - Application Vue.js optimisée
+ * Version Expert sans popups automatiques
+ */
+
+(function() {
+    'use strict';
+
+    const { createApp, ref, computed, onMounted, watch } = Vue;
+    const { createPinia, defineStore } = Pinia;
+
+    // ============================================================================
+    // CONFIGURATION
+    // ============================================================================
+    
+    const CONFIG = {
+        ZOOM_MIN: 0.3,
+        ZOOM_MAX: 3.0,
+        ZOOM_STEP: 0.1,
+        TOAST_DURATION: 5000,
+        SEARCH_DEBOUNCE: 300,
+        MAX_SEARCH_RESULTS: 50
+    };
+
+    const ENTITY_TYPES = [
+        { value: 'PERSON', label: 'Personne' },
+        { value: 'ORG', label: 'Organisation' },
+        { value: 'LOC', label: 'Localisation' },
+        { value: 'EMAIL', label: 'Email' },
+        { value: 'PHONE', label: 'Téléphone' },
+        { value: 'DATE', label: 'Date' },
+        { value: 'ADDRESS', label: 'Adresse' },
+        { value: 'IBAN', label: 'IBAN' },
+        { value: 'SIREN', label: 'SIREN' },
+        { value: 'SIRET', label: 'SIRET' }
+    ];
+
+    const ENTITY_TYPE_CLASSES = {
+        EMAIL: 'bg-blue-100 text-blue-800',
+        PHONE: 'bg-green-100 text-green-800',
+        DATE: 'bg-purple-100 text-purple-800',
+        ADDRESS: 'bg-red-100 text-red-800',
+        PERSON: 'bg-indigo-100 text-indigo-800',
+        ORG: 'bg-yellow-100 text-yellow-800',
+        LOC: 'bg-pink-100 text-pink-800',
+        IBAN: 'bg-gray-100 text-gray-800',
+        SIREN: 'bg-orange-100 text-orange-800',
+        SIRET: 'bg-teal-100 text-teal-800'
+    };
+
+    // ============================================================================
+    // UTILITAIRES
+    // ============================================================================
+    
+    const utils = {
+        debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        },
+
+        generateId() {
+            return 'id_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+        },
+
+        sanitizeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        },
+
+        escapeRegex(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         },
 
         formatPercent(value) {
-            return Math.round(value * 100) + '%';
+            return (value * 100).toFixed(2) + '%';
         }
     };
 
-    // Système de notifications
+    // ============================================================================
+    // SYSTÈME DE NOTIFICATIONS
+    // ============================================================================
+    
     const toastService = {
         show(message, type = 'info', duration = CONFIG.TOAST_DURATION) {
             const container = document.getElementById('toast-container');
@@ -16,12 +96,10 @@ escapeRegex(string) {
             const toast = this.createToast(message, type);
             container.appendChild(toast);
 
-            // Animation d'entrée
             requestAnimationFrame(() => {
                 toast.classList.add('animate-slide-in');
             });
 
-            // Auto-suppression
             setTimeout(() => {
                 this.remove(toast);
             }, duration);
@@ -425,10 +503,8 @@ escapeRegex(string) {
                 const loadingTask = pdfjsLib.getDocument(url);
                 const pdf = await loadingTask.promise;
 
-                // Clear container
                 container.innerHTML = '';
 
-                // Render first page
                 const page = await pdf.getPage(1);
                 const viewport = page.getViewport({ scale: zoom * 1.5 });
 
@@ -472,7 +548,7 @@ escapeRegex(string) {
                     trimXmlDeclaration: true
                 });
 
-                return 1; // DOCX is single page in viewer
+                return 1;
             } catch (error) {
                 console.error('DOCX render error:', error);
                 toastService.error('Erreur lors du rendu du DOCX');
@@ -509,12 +585,11 @@ escapeRegex(string) {
             while ((match = regex.exec(text)) !== null && matches.length < CONFIG.MAX_SEARCH_RESULTS) {
                 matches.push({
                     text: match[0],
-                    page: null, // Page info would need to be calculated
+                    page: null,
                     start: match.index,
                     end: match.index + match[0].length
                 });
                 
-                // Prevent infinite loop on zero-length matches
                 if (match.index === regex.lastIndex) {
                     regex.lastIndex++;
                 }
@@ -543,13 +618,11 @@ escapeRegex(string) {
                 const data = await response.json();
 
                 if (data.download_url) {
-                    // Trigger download
                     window.location.href = data.download_url;
                     toastService.success('Document exporté avec succès');
                 }
 
                 if (data.audit_url) {
-                    // Open audit report in new tab
                     window.open(data.audit_url, '_blank');
                 }
 
@@ -563,7 +636,7 @@ escapeRegex(string) {
     };
 
     // ============================================================================
-    // APPLICATION VUE.JS
+    // APPLICATION VUE.JS PRINCIPALE
     // ============================================================================
 
     function createApplication() {
@@ -586,14 +659,14 @@ escapeRegex(string) {
                 const groupStore = useGroupStore();
 
                 // ================================================================
-                // REACTIVE STATE
+                // REACTIVE STATE - AUCUN POPUP OUVERT PAR DÉFAUT
                 // ================================================================
                 const activeTab = ref('entities');
                 const selectedEntities = ref([]);
                 const draggedIndex = ref(null);
                 const bulkGroupId = ref('');
 
-                // Modals
+                // Modals - TOUS À FALSE PAR DÉFAUT
                 const showDetectionModal = ref(false);
                 const showGroupModal = ref(false);
                 const showExportModal = ref(false);
@@ -624,8 +697,14 @@ escapeRegex(string) {
                 const zoom = computed(() => appStore.zoom);
                 const currentPage = computed(() => appStore.currentPage);
                 const totalPages = computed(() => appStore.totalPages);
-                const searchTerm = computed(() => appStore.searchTerm);
-                const searchType = computed(() => appStore.searchType);
+                const searchTerm = computed({
+                    get: () => appStore.searchTerm,
+                    set: (value) => appStore.searchTerm = value
+                });
+                const searchType = computed({
+                    get: () => appStore.searchType,
+                    set: (value) => appStore.searchType = value
+                });
                 const searchResults = computed(() => appStore.searchResults);
 
                 // UI Computed
@@ -656,6 +735,14 @@ escapeRegex(string) {
 
                 const canConfirmDetection = computed(() => {
                     return newDetection.value.type && newDetection.value.value;
+                });
+
+                // Compter les entités par type pour l'aperçu
+                const entityTypeCounts = computed(() => {
+                    return entities.value.reduce((acc, entity) => {
+                        acc[entity.type] = (acc[entity.type] || 0) + 1;
+                        return acc;
+                    }, {});
                 });
 
                 // ================================================================
@@ -901,7 +988,7 @@ escapeRegex(string) {
                 };
 
                 // ================================================================
-                // METHODS - Modals
+                // METHODS - Modals (DÉCLENCHÉS UNIQUEMENT PAR BOUTONS)
                 // ================================================================
                 const confirmDetection = async () => {
                     if (!canConfirmDetection.value) return;
@@ -946,6 +1033,19 @@ escapeRegex(string) {
                     newGroupName.value = '';
                 };
 
+                // Export simple (bouton principal)
+                const exportDocument = async () => {
+                    try {
+                        await exportService.exportDocument(jobId, {
+                            watermark: '', // Pas de filigrane par défaut
+                            audit: false   // Pas de rapport par défaut
+                        });
+                    } catch (error) {
+                        console.error('Export document error:', error);
+                    }
+                };
+
+                // Export avec options (via popup)
                 const performExport = async () => {
                     try {
                         await exportService.exportDocument(jobId, exportOptions.value);
@@ -957,15 +1057,11 @@ escapeRegex(string) {
 
                 const closeExportModal = () => {
                     showExportModal.value = false;
-                    exportOptions.value = { watermark: '', audit: false };
-                };
-
-                const exportDocument = async () => {
-                    try {
-                        await exportService.exportDocument(jobId);
-                    } catch (error) {
-                        console.error('Export document error:', error);
-                    }
+                    // Réinitialiser les options à leurs valeurs par défaut
+                    exportOptions.value = { 
+                        watermark: '', 
+                        audit: false 
+                    };
                 };
 
                 // ================================================================
@@ -1127,7 +1223,7 @@ escapeRegex(string) {
                 });
 
                 // ================================================================
-                // TEMPLATE DATA - Vue utilise la délimitation [[ ]] pour éviter Jinja2
+                // TEMPLATE DATA
                 // ================================================================
                 return {
                     // Stores
@@ -1141,7 +1237,7 @@ escapeRegex(string) {
                     bulkGroupId,
                     draggedIndex,
 
-                    // Modals
+                    // Modals - CONTRÔLÉS PAR BOUTONS UNIQUEMENT
                     showDetectionModal,
                     showGroupModal,
                     showExportModal,
@@ -1174,6 +1270,7 @@ escapeRegex(string) {
                     canConfirmDetection,
                     tabs,
                     entityTypes,
+                    entityTypeCounts,
 
                     // CSS Methods
                     viewButtonClass,
@@ -1207,14 +1304,14 @@ escapeRegex(string) {
                     performSearch,
                     addSearchResultAsEntity,
 
-                    // Modal Methods
+                    // Modal Methods - DÉCLENCHÉS PAR BOUTONS UNIQUEMENT
                     confirmDetection,
                     closeDetectionModal,
                     confirmGroup,
                     closeGroupModal,
-                    performExport,
+                    exportDocument,      // Export simple
+                    performExport,       // Export avec options
                     closeExportModal,
-                    exportDocument,
 
                     // Drag & Drop Methods
                     onDragStart,
@@ -1268,121 +1365,4 @@ escapeRegex(string) {
         };
     }
 
-})();/**
- * Interface d'anonymisation - Application Vue.js
- * Séparation complète entre Jinja2 et Vue.js - Approche Expert
- */
-
-(function() {
-    'use strict';
-
-    const { createApp, ref, computed, onMounted, watch } = Vue;
-    const { createPinia, defineStore } = Pinia;
-
-    // ============================================================================
-    // CONFIGURATION ET UTILITAIRES
-    // ============================================================================
-    
-    const CONFIG = {
-        ZOOM_MIN: 0.3,
-        ZOOM_MAX: 3.0,
-        ZOOM_STEP: 0.1,
-        TOAST_DURATION: 5000,
-        SEARCH_DEBOUNCE: 300,
-        MAX_SEARCH_RESULTS: 50
-    };
-
-    const ENTITY_TYPES = [
-        { value: 'PERSON', label: 'Personne' },
-        { value: 'ORG', label: 'Organisation' },
-        { value: 'LOC', label: 'Localisation' },
-        { value: 'EMAIL', label: 'Email' },
-        { value: 'PHONE', label: 'Téléphone' },
-        { value: 'DATE', label: 'Date' },
-        { value: 'ADDRESS', label: 'Adresse' },
-        { value: 'IBAN', label: 'IBAN' },
-        { value: 'SIREN', label: 'SIREN' },
-        { value: 'SIRET', label: 'SIRET' }
-    ];
-
-    const ENTITY_TYPE_CLASSES = {
-        EMAIL: 'bg-blue-100 text-blue-800',
-        PHONE: 'bg-green-100 text-green-800',
-        DATE: 'bg-purple-100 text-purple-800',
-        ADDRESS: 'bg-red-100 text-red-800',
-        PERSON: 'bg-indigo-100 text-indigo-800',
-        ORG: 'bg-yellow-100 text-yellow-800',
-        LOC: 'bg-pink-100 text-pink-800',
-        IBAN: 'bg-gray-100 text-gray-800',
-        SIREN: 'bg-orange-100 text-orange-800',
-        SIRET: 'bg-teal-100 text-teal-800'
-    };
-
-    // Utilitaires
-    const utils = {
-        debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        },
-
-        generateId() {
-            return 'id_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
-        },
-
-        sanitizeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        },
-
-        escapeRegex(str) {
-            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        },
-        formatPercent(value) {
-            return (value * 100).toFixed(2) + '%';
-        }
-    };
-    // Services
-    const toastService = {
-        success(message) {
-            console.log(`Success: ${message}`);
-        },
-        error(message) {
-            console.error(`Error: ${message}`);
-        }
-        info(message) {
-            console.log(`Info: ${message}`);
-        }
-    };  
-    const documentService = {
-        async renderPDF(url, zoom, container) {
-            // Simuler le rendu PDF
-            console.log(`Rendering PDF from ${url} at zoom ${zoom}`);
-            container.innerHTML = `<p>PDF content at zoom ${zoom}</p>`;
-            return 10; // Simuler 10 pages
-        },
-        async renderDOCX(url, container) {
-            // Simuler le rendu DOCX
-            console.log(`Rendering DOCX from ${url}`);
-            container.innerHTML = `<p>DOCX content</p>`;
-        }
-    };
-    const searchService = {
-        async performSemanticSearch(jobId, term) {
-            // Simuler une recherche sémantique
-            console.log(`Performing semantic search for "${term}" in job ${jobId}`);
-            return [{ text: 'Résultat sémantique', page: 1 }];
-        },
-        performTextSearch(term, container, isRegex = false) {
-            // Simuler une recherche textuelle
-            console.log(`Performing text search for "${term}"`);
-            return [{ text: 'Résultat de recherche', page: 1, start: 0, end: 10 }];
-        }
-    };
+})();
