@@ -666,7 +666,7 @@
                 const draggedIndex = ref(null);
                 const bulkGroupId = ref('');
 
-                // Modals - TOUS À FALSE PAR DÉFAUT
+                // Modals - TOUS À FALSE PAR DÉFAUT - AUCUNE EXCEPTION
                 const showDetectionModal = ref(false);
                 const showGroupModal = ref(false);
                 const showExportModal = ref(false);
@@ -990,6 +990,21 @@
                 // ================================================================
                 // METHODS - Modals (DÉCLENCHÉS UNIQUEMENT PAR BOUTONS)
                 // ================================================================
+                
+                // Méthodes pour OUVRIR les modals (appelées par les boutons)
+                const openDetectionModal = () => {
+                    showDetectionModal.value = true;
+                };
+
+                const openGroupModal = () => {
+                    showGroupModal.value = true;
+                };
+
+                const openExportModal = () => {
+                    showExportModal.value = true;
+                };
+
+                // Méthodes de confirmation et fermeture
                 const confirmDetection = async () => {
                     if (!canConfirmDetection.value) return;
 
@@ -1143,7 +1158,7 @@
                 };
 
                 // ================================================================
-                // INITIALIZATION
+                // INITIALIZATION - AUCUNE OUVERTURE AUTOMATIQUE DE MODAL
                 // ================================================================
                 const loadJobStatus = async () => {
                     try {
@@ -1178,6 +1193,8 @@
                         await renderDocument();
                         toastService.success('Document chargé avec succès');
 
+                        // AUCUNE OUVERTURE AUTOMATIQUE DE MODAL ICI
+
                     } catch (error) {
                         console.error('Load job status error:', error);
                         toastService.error('Erreur lors du chargement du document');
@@ -1192,10 +1209,11 @@
                 };
 
                 // ================================================================
-                // WATCHERS
+                // WATCHERS - AUCUNE OUVERTURE AUTOMATIQUE DE MODAL
                 // ================================================================
                 watch(() => appStore.currentView, async () => {
                     await renderDocument();
+                    // AUCUNE OUVERTURE DE MODAL ICI
                 });
 
                 watch(() => appStore.searchTerm, () => {
@@ -1204,10 +1222,11 @@
                     } else {
                         appStore.searchResults = [];
                     }
+                    // AUCUNE OUVERTURE DE MODAL ICI
                 });
 
                 // ================================================================
-                // LIFECYCLE
+                // LIFECYCLE - AUCUNE OUVERTURE AUTOMATIQUE DE MODAL
                 // ================================================================
                 onMounted(async () => {
                     try {
@@ -1216,6 +1235,9 @@
                             entityStore.fetch(jobId),
                             groupStore.fetch(jobId)
                         ]);
+                        
+                        // AUCUNE OUVERTURE AUTOMATIQUE DE MODAL ICI
+                        
                     } catch (error) {
                         console.error('App initialization error:', error);
                         toastService.error('Erreur lors de l\'initialisation');
@@ -1305,12 +1327,15 @@
                     addSearchResultAsEntity,
 
                     // Modal Methods - DÉCLENCHÉS PAR BOUTONS UNIQUEMENT
+                    openDetectionModal,     // Méthode pour ouvrir
                     confirmDetection,
                     closeDetectionModal,
+                    openGroupModal,         // Méthode pour ouvrir
                     confirmGroup,
                     closeGroupModal,
-                    exportDocument,      // Export simple
-                    performExport,       // Export avec options
+                    openExportModal,        // Méthode pour ouvrir
+                    exportDocument,         // Export simple
+                    performExport,          // Export avec options
                     closeExportModal,
 
                     // Drag & Drop Methods

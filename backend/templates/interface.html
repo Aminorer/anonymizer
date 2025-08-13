@@ -122,11 +122,11 @@
                 <div class="flex-1 overflow-auto">
                     <!-- Onglet Entités -->
                     <div v-if="activeTab === 'entities'" class="p-4">
-                        <!-- Actions principales - BOUTONS SÉPARÉS -->
+                        <!-- Actions principales -->
                         <div class="mb-4 space-y-3">
                             <div class="grid grid-cols-2 gap-2">
                                 <!-- Bouton Ajouter une détection manuelle -->
-                                <button @click="showDetectionModal = true" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center">
+                                <button @click="openDetectionModal" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center">
                                     <i class="fas fa-plus mr-2"></i>
                                     Ajouter
                                 </button>
@@ -196,7 +196,7 @@
                             <div v-if="entities.length === 0" class="text-center py-8 text-gray-500">
                                 <i class="fas fa-tags text-4xl mb-4 opacity-50"></i>
                                 <p>Aucune entité détectée</p>
-                                <button @click="showDetectionModal = true" class="mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm">
+                                <button @click="openDetectionModal" class="mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm">
                                     <i class="fas fa-plus mr-2"></i>
                                     Ajouter manuellement
                                 </button>
@@ -207,7 +207,7 @@
                     <!-- Onglet Groupes -->
                     <div v-if="activeTab === 'groups'" class="p-4">
                         <div class="mb-4">
-                            <button @click="showGroupModal = true" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                            <button @click="openGroupModal" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
                                 <i class="fas fa-plus mr-2"></i>Créer un groupe
                             </button>
                         </div>
@@ -299,7 +299,7 @@
             </div>
         </div>
 
-        <!-- Footer optimisé avec boutons séparés -->
+        <!-- Footer optimisé -->
         <footer class="bg-white border-t px-6 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-6 text-sm text-gray-600">
@@ -320,7 +320,7 @@
                 <!-- Actions d'export optimisées -->
                 <div class="flex items-center space-x-3">
                     <!-- Bouton Options d'export (déclenche le popup) -->
-                    <button @click="showExportModal = true" class="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors flex items-center">
+                    <button @click="openExportModal" class="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors flex items-center">
                         <i class="fas fa-cog mr-2"></i>
                         Options d'export
                     </button>
@@ -334,7 +334,7 @@
             </div>
         </footer>
 
-        <!-- MODALS - Affiché uniquement quand déclenché -->
+        <!-- MODALS - Affiché uniquement quand déclenché par les boutons -->
         
         <!-- Modal Ajout détection manuelle -->
         <div v-if="showDetectionModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
