@@ -6,7 +6,7 @@
 (function() {
     'use strict';
 
-    const { createApp, ref, computed, onMounted, watch } = Vue;
+    const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
     const { createPinia, defineStore } = Pinia;
 
     // ============================================================================
@@ -1002,6 +1002,12 @@
 
                 const openExportModal = () => {
                     showExportModal.value = true;
+                    nextTick(() => {
+                        const modal = document.getElementById('export-modal');
+                        if (modal) {
+                            modal.classList.remove('hidden');
+                        }
+                    });
                 };
 
                 // Méthodes de confirmation et fermeture
