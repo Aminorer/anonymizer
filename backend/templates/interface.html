@@ -1,1000 +1,387 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Interface d'anonymisation</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-<link rel="stylesheet" href="/static/css/interface.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interface d'anonymisation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/interface.css">
 </head>
 <body class="bg-gray-50">
-<div id="app" class="flex flex-col h-screen">
-<header class="bg-white shadow-sm border-b">
-<div class="px-6 py-4">
-<div class="flex items-center justify-between">
-<div class="flex items-center space-x-4">
-<button onclick="window.location.href='/'" class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-<i class="fas fa-arrow-left mr-2"></i>
-Retour
-</button>
-<div class="h-6 w-px bg-gray-300"></div>
-<h1 class="text-xl font-semibold text-gray-800">Interface d'anonymisation</h1>
-</div>
-<div class="flex items-center space-x-4">
-<div class="flex bg-gray-100 rounded-lg p-1">
-<button @click="changeView('original')" :class="['px-4 py-2 rounded-md transition-all', view === 'original' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900']">
-<i class="fas fa-file-alt mr-2"></i>Original
-</button>
-<button @click="changeView('anonymized')" :class="['px-4 py-2 rounded-md transition-all', view === 'anonymized' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900']">
-<i class="fas fa-shield-alt mr-2"></i>Anonymisé
-</button>
-</div>
-<div class="flex items-center space-x-2">
-<button @click="undo" :disabled="history.length === 0" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
-<i class="fas fa-undo"></i>
-</button>
-<button @click="redo" :disabled="future.length === 0" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
-<i class="fas fa-redo"></i>
-</button>
-<div class="h-6 w-px bg-gray-300"></div>
-<button @click="showDetectionModal = true" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-<i class="fas fa-plus mr-2"></i>Ajouter
-</button>
-</div>
-</div>
-</div>
-</header>
-<div class="flex flex-1 overflow-hidden">
-<div class="flex-1 bg-white border-r">
-<div class="zoom-controls bg-white border-b p-4 flex items-center justify-between">
-<div class="flex items-center space-x-4">
-<div class="flex items-center space-x-2">
-<button @click="zoomOut" class="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100">
-<i class="fas fa-search-minus"></i>
-</button>
-<span class="text-sm text-gray-600 min-w-16 text-center">{{ Math.round(zoom * 100) }}%</span>
-<button @click="zoomIn" class="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100">
-<i class="fas fa-search-plus"></i>
-</button>
-</div>
-<div class="flex items-center space-x-2" v-if="totalPages > 1">
-<button @click="prevPage" :disabled="currentPage <= 1" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100">
-<i class="fas fa-chevron-left"></i>
-</button>
-<span class="text-sm text-gray-600">Page {{ currentPage }} / {{ totalPages }}</span>
-<button @click="nextPage" :disabled="currentPage >= totalPages" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100">
-<i class="fas fa-chevron-right"></i>
-</button>
-</div>
-</div>
-<div class="flex items-center space-x-6 text-sm text-gray-600">
-<div class="flex items-center">
-<i class="fas fa-tags mr-2 text-blue-600"></i>
-<span>{{ entities.length }} entités</span>
-</div>
-<div class="flex items-center" v-if="processingMode === 'ai'">
-<i class="fas fa-brain mr-2 text-purple-600"></i>
-<span>Mode IA</span>
-</div>
-<div class="flex items-center" v-else>
-<i class="fas fa-bolt mr-2 text-green-600"></i>
-<span>Mode Regex</span>
-</div>
-</div>
-</div>
-<div class="viewer-container overflow-auto p-6 bg-gray-50">
-<div id="viewer" class="mx-auto bg-white shadow-lg rounded-lg overflow-hidden" :style="{ transform: `scale(${zoom})`, transformOrigin: 'top center' }" @mouseup="onTextSelection">
-<div v-if="!status" class="flex items-center justify-center h-96">
-<div class="text-center">
-<i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
-<p class="text-gray-600">Chargement du document...</p>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="w-96 bg-white sidebar overflow-hidden flex flex-col">
-<div class="border-b">
-<div class="flex">
-<button @click="activeTab = 'entities'" :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'entities' ? 'active' : 'text-gray-600 hover:text-gray-900']">
-<i class="fas fa-tags mr-2"></i>Entités
-</button>
-<button @click="activeTab = 'groups'" :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'groups' ? 'active' : 'text-gray-600 hover:text-gray-900']">
-<i class="fas fa-layer-group mr-2"></i>Groupes
-</button>
-<button @click="activeTab = 'search'" :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'search' ? 'active' : 'text-gray-600 hover:text-gray-900']">
-<i class="fas fa-search mr-2"></i>Recherche
-</button>
-<button @click="activeTab = 'rules'" :class="['tab-button flex-1 py-3 px-4 text-sm font-medium', activeTab === 'rules' ? 'active' : 'text-gray-600 hover:text-gray-900']">
-<i class="fas fa-cog mr-2"></i>Règles
-</button>
-</div>
-</div>
-<div class="flex-1 overflow-auto">
-<div v-if="activeTab === 'entities'" class="p-4">
-<div class="mb-4 space-y-3">
-<div class="flex space-x-2">
-<button @click="showDetectionModal = true" class="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
-<i class="fas fa-plus mr-2"></i>Ajouter
-</button>
-<button @click="deleteSelected" :disabled="selected.length === 0" class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
-<i class="fas fa-trash mr-2"></i>Supprimer
-</button>
-</div>
-<div class="flex space-x-2" v-if="selected.length > 0">
-<select v-model="bulkGroup" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-<option value="">--Assigner au groupe--</option>
-<option v-for="grp in groupStore.items" :key="grp.id" :value="grp.id">{{ grp.name }}</option>
-</select>
-<button @click="groupSelected" :disabled="!bulkGroup" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
-<i class="fas fa-check"></i>
-</button>
-</div>
-</div>
-<div class="space-y-2">
-<div class="flex items-center mb-3">
-<input type="checkbox" @change="toggleAll($event)" :checked="selected.length === entities.length && entities.length > 0" class="mr-2 rounded">
-<span class="text-sm text-gray-600">
-<span v-if="selected.length > 0">{{ selected.length }} sélectionnée(s)</span>
-<span v-else>{{ entities.length }} entité(s)</span>
-</span>
-</div>
-<div v-for="(ent, idx) in entities" :key="ent.id || idx" :class="['entity-row p-3 border border-gray-200 rounded-lg cursor-pointer', selected.includes(ent.id) ? 'selected' : '']" @click="toggleEntitySelection(ent.id)" draggable="true" @dragstart="dragStart(idx, $event)" @dragover.prevent @drop="drop(idx)">
-<div class="flex items-start space-x-3">
-<input type="checkbox" :checked="selected.includes(ent.id)" @click.stop @change="toggleEntitySelection(ent.id)" class="mt-1 rounded">
-<div class="flex-1 min-w-0">
-<div class="flex items-center justify-between mb-2">
-<span :class="['px-2 py-1 text-xs rounded-full font-medium', getEntityTypeClass(ent.type)]">{{ ent.type }}</span>
-<span v-if="ent.page" class="text-xs text-gray-500">Page {{ ent.page }}</span>
-</div>
-<div class="space-y-2">
-<div>
-<label class="block text-xs text-gray-600 mb-1">Valeur originale</label>
-<input v-model="ent.value" @change="updateEntity(ent)" class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
-</div>
-<div>
-<label class="block text-xs text-gray-600 mb-1">Remplacement</label>
-<input v-model="ent.replacement" @change="updateEntity(ent)" :placeholder="`[${ent.type}]`" class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
-</div>
-<div v-if="processingMode === 'ai' && ent.confidence !== null && ent.confidence !== undefined" class="flex items-center justify-between">
-<span class="text-xs text-gray-600">Confiance</span>
-<span class="text-xs font-medium" :class="ent.confidence >= 0.8 ? 'text-green-600' : ent.confidence >= 0.5 ? 'text-yellow-600' : 'text-red-600'">{{ (ent.confidence * 100).toFixed(0) }}%</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div v-if="entities.length === 0" class="text-center py-8 text-gray-500">
-<i class="fas fa-tags text-4xl mb-4 opacity-50"></i>
-<p>Aucune entité détectée</p>
-<button @click="showDetectionModal = true" class="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">Ajouter manuellement</button>
-</div>
-</div>
-</div>
+    <!-- TEMPLATE JINJA2 PUR - AUCUNE VUE.JS ICI -->
+    <div id="app" class="flex flex-col h-screen">
+        <header class="bg-white shadow-sm border-b">
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <button onclick="window.location.href='/'" class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+                            <i class="fas fa-arrow-left mr-2"></i>
+                            Retour
+                        </button>
+                        <div class="h-6 w-px bg-gray-300"></div>
+                        <h1 class="text-xl font-semibold text-gray-800">Interface d'anonymisation</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex bg-gray-100 rounded-lg p-1">
+                            <button @click="changeView('original')" :class="viewButtonClass('original')">
+                                <i class="fas fa-file-alt mr-2"></i>Original
+                            </button>
+                            <button @click="changeView('anonymized')" :class="viewButtonClass('anonymized')">
+                                <i class="fas fa-shield-alt mr-2"></i>Anonymisé
+                            </button>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button @click="undo" :disabled="!canUndo" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fas fa-undo"></i>
+                            </button>
+                            <button @click="redo" :disabled="!canRedo" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                            <div class="h-6 w-px bg-gray-300"></div>
+                            <button @click="showDetectionModal = true" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>Ajouter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-<!-- Autres onglets simplifiés pour éviter les erreurs -->
-<div v-if="activeTab === 'groups'" class="p-4">
-<div class="mb-4">
-<button @click="showGroupModal = true" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-<i class="fas fa-plus mr-2"></i>Créer un groupe
-</button>
-</div>
-<div class="space-y-3">
-<div v-for="grp in groupStore.items" :key="grp.id" class="group-item p-4 border border-gray-200 rounded-lg" @dragover.prevent @drop="assignToGroup(grp.id, $event)">
-<div class="flex items-center justify-between mb-3">
-<h4 class="font-medium text-gray-800">{{ grp.name }}</h4>
-<div class="flex items-center space-x-2">
-<span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full" v-text="grp.entities ? grp.entities.length : 0"></span>
-<button @click="deleteGroup(grp.id)" class="text-red-500 hover:text-red-700 text-sm"><i class="fas fa-trash"></i></button>
-</div>
-</div>
-<div class="text-sm text-gray-600 mb-2">Glissez-déposez des entités ici</div>
-<div class="space-y-1" v-if="grp.entities && grp.entities.length > 0">
-<div v-for="entityId in grp.entities" :key="entityId" class="text-xs p-2 bg-gray-50 rounded border">
-<span v-if="getEntityById(entityId)">{{ getEntityById(entityId).value }}</span>
-<span v-else>Entité inconnue</span>
-<span class="text-gray-500 ml-2">(<span v-if="getEntityById(entityId)">{{ getEntityById(entityId).type }}</span><span v-else>?</span>)</span>
-</div>
-</div>
-</div>
-<div v-if="groupStore.items.length === 0" class="text-center py-8 text-gray-500">
-<i class="fas fa-layer-group text-4xl mb-4 opacity-50"></i>
-<p>Aucun groupe créé</p>
-<p class="text-sm mt-2">Les groupes permettent d'appliquer des règles communes à plusieurs entités</p>
-</div>
-</div>
-</div>
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Document Viewer -->
+            <div class="flex-1 bg-white border-r">
+                <div class="zoom-controls bg-white border-b p-4 flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <button @click="zoomOut" class="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100">
+                                <i class="fas fa-search-minus"></i>
+                            </button>
+                            <span class="text-sm text-gray-600 min-w-16 text-center">[[zoomPercentage]]</span>
+                            <button @click="zoomIn" class="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100">
+                                <i class="fas fa-search-plus"></i>
+                            </button>
+                        </div>
+                        <div v-if="totalPages > 1" class="flex items-center space-x-2">
+                            <button @click="prevPage" :disabled="currentPage <= 1" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span class="text-sm text-gray-600">[[pageInfo]]</span>
+                            <button @click="nextPage" :disabled="currentPage >= totalPages" class="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-6 text-sm text-gray-600">
+                        <div class="flex items-center">
+                            <i class="fas fa-tags mr-2 text-blue-600"></i>
+                            <span>[[entitiesCount]] entités</span>
+                        </div>
+                        <div v-if="processingMode === 'ai'" class="flex items-center">
+                            <i class="fas fa-brain mr-2 text-purple-600"></i>
+                            <span>Mode IA</span>
+                        </div>
+                        <div v-else class="flex items-center">
+                            <i class="fas fa-bolt mr-2 text-green-600"></i>
+                            <span>Mode Regex</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="viewer-container overflow-auto p-6 bg-gray-50">
+                    <div id="viewer" class="mx-auto bg-white shadow-lg rounded-lg overflow-hidden" :style="viewerStyle" @mouseup="onTextSelection">
+                        <div v-if="!status" class="flex items-center justify-center h-96">
+                            <div class="text-center">
+                                <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+                                <p class="text-gray-600">Chargement du document...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-<div v-if="activeTab === 'search'" class="p-4">
-<div class="space-y-4">
-<div>
-<label class="block text-sm font-medium text-gray-700 mb-2">Type de recherche</label>
-<select v-model="searchType" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-<option value="text">Texte simple</option>
-<option value="regex">Expression régulière</option>
-<option value="semantic">Recherche sémantique</option>
-</select>
-</div>
-<div>
-<label class="block text-sm font-medium text-gray-700 mb-2">Terme de recherche</label>
-<div class="flex space-x-2">
-<input v-model="searchTerm" @keyup.enter="search" placeholder="Rechercher dans le document..." class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
-<button @click="search" :disabled="!searchTerm" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-<i class="fas fa-search"></i>
-</button>
-</div>
-</div>
-<div v-if="searchResults.length > 0">
-<h4 class="text-sm font-medium text-gray-700 mb-2">Résultats ({{ searchResults.length }})</h4>
-<div class="space-y-2 max-h-64 overflow-y-auto">
-<div v-for="(result, idx) in searchResults" :key="idx" class="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-<div class="text-sm font-medium text-gray-800 mb-1">{{ result.text }}</div>
-<div class="flex items-center justify-between">
-<span class="text-xs text-gray-500">Page {{ result.page || '?' }}</span>
-<button @click="addSearchResultAsEntity(result)" class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors">
-<i class="fas fa-plus mr-1"></i>Ajouter
-</button>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
+            <!-- Sidebar -->
+            <div class="w-96 bg-white sidebar overflow-hidden flex flex-col">
+                <div class="border-b">
+                    <div class="flex">
+                        <button v-for="tab in tabs" :key="tab.id" @click="activeTab = tab.id" :class="tabButtonClass(tab.id)">
+                            <i :class="tab.icon + ' mr-2'"></i>
+                            [[tab.label]]
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex-1 overflow-auto">
+                    <!-- Entities Tab -->
+                    <div v-if="activeTab === 'entities'" class="p-4">
+                        <div class="mb-4 space-y-3">
+                            <div class="flex space-x-2">
+                                <button @click="showDetectionModal = true" class="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                                    <i class="fas fa-plus mr-2"></i>Ajouter
+                                </button>
+                                <button @click="deleteSelected" :disabled="selectedEntities.length === 0" class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
+                                    <i class="fas fa-trash mr-2"></i>Supprimer
+                                </button>
+                            </div>
+                            
+                            <div v-if="selectedEntities.length > 0" class="flex space-x-2">
+                                <select v-model="bulkGroupId" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    <option value="">--Assigner au groupe--</option>
+                                    <option v-for="group in groups" :key="group.id" :value="group.id">[[group.name]]</option>
+                                </select>
+                                <button @click="assignSelectedToGroup" :disabled="!bulkGroupId" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <div class="flex items-center mb-3">
+                                <input type="checkbox" @change="toggleAllEntities" :checked="allEntitiesSelected" class="mr-2 rounded">
+                                <span class="text-sm text-gray-600">[[selectionInfo]]</span>
+                            </div>
+                            
+                            <div v-for="(entity, index) in entities" :key="entity.id" :class="entityRowClass(entity)" @click="toggleEntitySelection(entity.id)" draggable="true" @dragstart="onDragStart(index, $event)" @dragover.prevent @drop="onDrop(index, $event)">
+                                <div class="flex items-start space-x-3">
+                                    <input type="checkbox" :checked="isEntitySelected(entity.id)" @click.stop @change="toggleEntitySelection(entity.id)" class="mt-1 rounded">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span :class="entityTypeClass(entity.type)">[[entity.type]]</span>
+                                            <span v-if="entity.page" class="text-xs text-gray-500">Page [[entity.page]]</span>
+                                        </div>
+                                        
+                                        <div class="space-y-2">
+                                            <div>
+                                                <label class="block text-xs text-gray-600 mb-1">Valeur originale</label>
+                                                <input v-model="entity.value" @change="updateEntity(entity)" class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-gray-600 mb-1">Remplacement</label>
+                                                <input v-model="entity.replacement" @change="updateEntity(entity)" :placeholder="entityPlaceholder(entity.type)" class="w-full px-2 py-1 text-sm border border-gray-300 rounded">
+                                            </div>
+                                            
+                                            <div v-if="showConfidence(entity)" class="flex items-center justify-between">
+                                                <span class="text-xs text-gray-600">Confiance</span>
+                                                <span class="text-xs font-medium" :class="confidenceClass(entity.confidence)">[[confidenceText(entity.confidence)]]</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div v-if="entities.length === 0" class="text-center py-8 text-gray-500">
+                                <i class="fas fa-tags text-4xl mb-4 opacity-50"></i>
+                                <p>Aucune entité détectée</p>
+                                <button @click="showDetectionModal = true" class="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">Ajouter manuellement</button>
+                            </div>
+                        </div>
+                    </div>
 
-<div v-if="activeTab === 'rules'" class="p-4">
-<div class="space-y-6">
-<div>
-<h3 class="text-lg font-medium text-gray-800 mb-3">Configuration des règles</h3>
-<p class="text-sm text-gray-600">Gestion des patterns de détection et styles d'anonymisation.</p>
-</div>
-</div>
-</div>
-</div>
-</div>
+                    <!-- Groups Tab -->
+                    <div v-if="activeTab === 'groups'" class="p-4">
+                        <div class="mb-4">
+                            <button @click="showGroupModal = true" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>Créer un groupe
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <div v-for="group in groups" :key="group.id" class="group-item p-4 border border-gray-200 rounded-lg" @dragover.prevent @drop="onDropToGroup(group.id, $event)">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="font-medium text-gray-800">[[group.name]]</h4>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">[[groupEntityCount(group)]]</span>
+                                        <button @click="deleteGroup(group.id)" class="text-red-500 hover:text-red-700 text-sm">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-sm text-gray-600 mb-2">Glissez-déposez des entités ici</div>
+                                
+                                <div v-if="groupHasEntities(group)" class="space-y-1">
+                                    <div v-for="entityId in group.entities" :key="entityId" class="text-xs p-2 bg-gray-50 rounded border">
+                                        <template v-if="getEntityById(entityId)">
+                                            [[getEntityById(entityId).value]]
+                                            <span class="text-gray-500 ml-2">([[getEntityById(entityId).type]])</span>
+                                        </template>
+                                        <template v-else>
+                                            <span class="text-red-500">Entité introuvable</span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div v-if="groups.length === 0" class="text-center py-8 text-gray-500">
+                                <i class="fas fa-layer-group text-4xl mb-4 opacity-50"></i>
+                                <p>Aucun groupe créé</p>
+                                <p class="text-sm mt-2">Les groupes permettent d'appliquer des règles communes</p>
+                            </div>
+                        </div>
+                    </div>
 
-<footer class="bg-white border-t px-6 py-4">
-<div class="flex items-center justify-between">
-<div class="flex items-center space-x-6 text-sm text-gray-600">
-<div class="flex items-center">
-<i class="fas fa-tags mr-2 text-blue-600"></i>
-<span>{{ entities.length }} entités totales</span>
-</div>
-<div class="flex items-center" v-if="selected.length > 0">
-<i class="fas fa-check-square mr-2 text-green-600"></i>
-<span>{{ selected.length }} sélectionnées</span>
-</div>
-<div class="flex items-center" v-if="groupStore.items.length > 0">
-<i class="fas fa-layer-group mr-2 text-purple-600"></i>
-<span>{{ groupStore.items.length }} groupes</span>
-</div>
-</div>
-<div class="flex items-center space-x-4">
-<button @click="showExportModal = true" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-<i class="fas fa-cog mr-2"></i>Options d'export
-</button>
-<button @click="exportDoc" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-<i class="fas fa-download mr-2"></i>Télécharger DOCX anonymisé
-</button>
-</div>
-</div>
-</footer>
+                    <!-- Search Tab -->
+                    <div v-if="activeTab === 'search'" class="p-4">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Type de recherche</label>
+                                <select v-model="searchType" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="text">Texte simple</option>
+                                    <option value="regex">Expression régulière</option>
+                                    <option value="semantic">Recherche sémantique</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Terme de recherche</label>
+                                <div class="flex space-x-2">
+                                    <input v-model="searchTerm" @keyup.enter="performSearch" placeholder="Rechercher dans le document..." class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
+                                    <button @click="performSearch" :disabled="!searchTerm" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div v-if="searchResults.length > 0">
+                                <h4 class="text-sm font-medium text-gray-700 mb-2">Résultats ([[searchResults.length]])</h4>
+                                <div class="space-y-2 max-h-64 overflow-y-auto">
+                                    <div v-for="(result, index) in searchResults" :key="index" class="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                        <div class="text-sm font-medium text-gray-800 mb-1">[[result.text]]</div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs text-gray-500">[[pageLabel(result.page)]]</span>
+                                            <button @click="addSearchResultAsEntity(result)" class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors">
+                                                <i class="fas fa-plus mr-1"></i>Ajouter
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-<!-- Modaux -->
-<div v-if="showDetectionModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
-<div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-<h3 class="text-lg font-semibold text-gray-800 mb-4">Ajouter une détection manuelle</h3>
-<div class="space-y-4">
-<div>
-<label class="block text-sm font-medium text-gray-700 mb-1">Type d'entité</label>
-<select v-model="newDetection.type" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-<option value="">Sélectionnez un type</option>
-<option value="PERSON">Personne</option>
-<option value="ORG">Organisation</option>
-<option value="LOC">Localisation</option>
-<option value="EMAIL">Email</option>
-<option value="PHONE">Téléphone</option>
-<option value="DATE">Date</option>
-<option value="ADDRESS">Adresse</option>
-<option value="IBAN">IBAN</option>
-<option value="SIREN">SIREN</option>
-<option value="SIRET">SIRET</option>
-</select>
-</div>
-<div>
-<label class="block text-sm font-medium text-gray-700 mb-1">Valeur à rechercher</label>
-<input v-model="newDetection.value" placeholder="Texte à anonymiser" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-</div>
-<div>
-<label class="block text-sm font-medium text-gray-700 mb-1">Remplacement (optionnel)</label>
-<input v-model="newDetection.replacement" :placeholder="`[${newDetection.type || 'TYPE'}]`" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-</div>
-</div>
-<div class="flex space-x-3 mt-6">
-<button @click="confirmDetection" :disabled="!newDetection.type || !newDetection.value" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-<i class="fas fa-plus mr-2"></i>Ajouter
-</button>
-<button @click="showDetectionModal = false" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">Annuler</button>
-</div>
-</div>
-</div>
-
-<div v-if="showGroupModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
-<div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-<h3 class="text-lg font-semibold text-gray-800 mb-4">Créer un nouveau groupe</h3>
-<div class="space-y-4">
-<div>
-<label class="block text-sm font-medium text-gray-700 mb-1">Nom du groupe</label>
-<input v-model="newGroupName" placeholder="Ex: Informations personnelles" class="w-full px-3 py-2 border border-gray-300 rounded-lg" @keyup.enter="confirmGroup">
-</div>
-</div>
-<div class="flex space-x-3 mt-6">
-<button @click="confirmGroup" :disabled="!newGroupName" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-<i class="fas fa-plus mr-2"></i>Créer
-</button>
-<button @click="showGroupModal = false" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">Annuler</button>
-</div>
-</div>
-</div>
-
-<div v-if="showExportModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
-<div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-<h3 class="text-lg font-semibold text-gray-800 mb-4">Options d'export</h3>
-<div class="space-y-4">
-<div>
-<label class="block text-sm font-medium text-gray-700 mb-1">Filigrane (optionnel)</label>
-<input v-model="watermark" placeholder="Document anonymisé" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-</div>
-<div class="flex items-center">
-<input type="checkbox" v-model="wantAudit" id="audit-checkbox" class="mr-2 rounded">
-<label for="audit-checkbox" class="text-sm text-gray-700">Inclure un rapport d'audit</label>
-</div>
-</div>
-<div class="flex space-x-3 mt-6">
-<button @click="exportWithOptions" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-<i class="fas fa-download mr-2"></i>Exporter
-</button>
-<button @click="showExportModal = false" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">Annuler</button>
-</div>
-</div>
-</div>
-
-<div id="toast-container" class="fixed top-4 right-4 space-y-2 z-50"></div>
-</div>
-
-<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script src="https://unpkg.com/pinia@2/dist/pinia.iife.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://unpkg.com/docx-preview@0.4.1/dist/docx-preview.js"></script>
-
-<script>
-const { createApp, ref, onMounted, computed } = Vue;
-const { createPinia, defineStore } = Pinia;
-
-// Récupération du job_id depuis l'URL
-const jobId = new URLSearchParams(window.location.search).get('job_id');
-if (!jobId) { 
-    alert('Job ID manquant'); 
-    window.location.href = '/'; 
-}
-
-// Toast notifications
-function showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-    
-    const toast = document.createElement('div');
-    const iconClass = type === 'success' ? 'fa-check-circle text-green-600' : 
-                     type === 'error' ? 'fa-exclamation-triangle text-red-600' : 
-                     'fa-info-circle text-blue-600';
-    const bgClass = type === 'success' ? 'bg-green-50 border-green-200' : 
-                   type === 'error' ? 'bg-red-50 border-red-200' : 
-                   'bg-blue-50 border-blue-200';
-    
-    toast.className = `toast p-4 rounded-lg border ${bgClass} shadow-lg max-w-sm`;
-    toast.innerHTML = `
-        <div class="flex items-center">
-            <i class="fas ${iconClass} mr-3"></i>
-            <span class="text-gray-800">${message}</span>
-            <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-gray-500 hover:text-gray-700">
-                <i class="fas fa-times"></i>
-            </button>
+                    <!-- Rules Tab -->
+                    <div v-if="activeTab === 'rules'" class="p-4">
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-lg font-medium text-gray-800 mb-3">Configuration des règles</h3>
+                                <p class="text-sm text-gray-600">Gestion des patterns de détection et styles d'anonymisation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    `;
+
+        <!-- Footer -->
+        <footer class="bg-white border-t px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-6 text-sm text-gray-600">
+                    <div class="flex items-center">
+                        <i class="fas fa-tags mr-2 text-blue-600"></i>
+                        <span>[[entitiesCount]] entités totales</span>
+                    </div>
+                    <div v-if="selectedEntities.length > 0" class="flex items-center">
+                        <i class="fas fa-check-square mr-2 text-green-600"></i>
+                        <span>[[selectedEntities.length]] sélectionnées</span>
+                    </div>
+                    <div v-if="groups.length > 0" class="flex items-center">
+                        <i class="fas fa-layer-group mr-2 text-purple-600"></i>
+                        <span>[[groups.length]] groupes</span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <button @click="showExportModal = true" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-cog mr-2"></i>Options d'export
+                    </button>
+                    <button @click="exportDocument" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        <i class="fas fa-download mr-2"></i>Télécharger DOCX anonymisé
+                    </button>
+                </div>
+            </div>
+        </footer>
+
+        <!-- Modals -->
+        <div v-if="showDetectionModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
+            <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Ajouter une détection manuelle</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Type d'entité</label>
+                        <select v-model="newDetection.type" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            <option value="">Sélectionnez un type</option>
+                            <option v-for="entityType in entityTypes" :key="entityType.value" :value="entityType.value">[[entityType.label]]</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Valeur à rechercher</label>
+                        <input v-model="newDetection.value" placeholder="Texte à anonymiser" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Remplacement (optionnel)</label>
+                        <input v-model="newDetection.replacement" :placeholder="entityPlaceholder(newDetection.type)" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                </div>
+                <div class="flex space-x-3 mt-6">
+                    <button @click="confirmDetection" :disabled="!canConfirmDetection" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Ajouter
+                    </button>
+                    <button @click="closeDetectionModal" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">Annuler</button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showGroupModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
+            <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Créer un nouveau groupe</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nom du groupe</label>
+                        <input v-model="newGroupName" placeholder="Ex: Informations personnelles" class="w-full px-3 py-2 border border-gray-300 rounded-lg" @keyup.enter="confirmGroup">
+                    </div>
+                </div>
+                <div class="flex space-x-3 mt-6">
+                    <button @click="confirmGroup" :disabled="!newGroupName" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Créer
+                    </button>
+                    <button @click="closeGroupModal" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">Annuler</button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showExportModal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay flex items-center justify-center z-50">
+            <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Options d'export</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Filigrane (optionnel)</label>
+                        <input v-model="exportOptions.watermark" placeholder="Document anonymisé" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" v-model="exportOptions.audit" id="audit-checkbox" class="mr-2 rounded">
+                        <label for="audit-checkbox" class="text-sm text-gray-700">Inclure un rapport d'audit</label>
+                    </div>
+                </div>
+                <div class="flex space-x-3 mt-6">
+                    <button @click="performExport" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-download mr-2"></i>Exporter
+                    </button>
+                    <button @click="closeExportModal" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">Annuler</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div id="toast-container" class="fixed top-4 right-4 space-y-2 z-50"></div>
+    </div>
+
+    <!-- SCRIPTS EXTERNES -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/pinia@2/dist/pinia.iife.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/docx-preview@0.4.1/dist/docx-preview.js"></script>
     
-    container.appendChild(toast);
-    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 5000);
-}
-
-// Entity type styling
-function mapEntityTypeClass(type) {
-    const classes = {
-        EMAIL: 'bg-blue-100 text-blue-800',
-        PHONE: 'bg-green-100 text-green-800',
-        DATE: 'bg-purple-100 text-purple-800',
-        ADDRESS: 'bg-red-100 text-red-800',
-        PERSON: 'bg-indigo-100 text-indigo-800',
-        ORG: 'bg-yellow-100 text-yellow-800',
-        LOC: 'bg-pink-100 text-pink-800',
-        IBAN: 'bg-gray-100 text-gray-800',
-        SIREN: 'bg-orange-100 text-orange-800',
-        SIRET: 'bg-teal-100 text-teal-800'
-    };
-    return classes[type] || 'bg-gray-100 text-gray-800';
-}
-
-// Stores Pinia
-const useEntityStore = defineStore('entities', {
-    state: () => ({ items: [] }),
-    actions: {
-        async fetch() {
-            try {
-                const res = await fetch(`/entities/${jobId}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    this.items = data.map(e => ({ 
-                        replacement: '', 
-                        page: null, 
-                        confidence: null, 
-                        ...e 
-                    }));
-                } else {
-                    console.error('Erreur lors du chargement des entités:', res.status);
-                }
-            } catch (e) {
-                console.error('Erreur réseau lors du chargement des entités:', e);
-                showToast('Erreur lors du chargement des entités', 'error');
-            }
-        },
-        async add(entity) {
-            try {
-                const res = await fetch(`/entities/${jobId}`, { 
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify(entity) 
-                });
-                if (res.ok) { 
-                    const newEntity = await res.json();
-                    this.items.push(newEntity); 
-                    showToast('Entité ajoutée avec succès', 'success'); 
-                } else {
-                    throw new Error('Erreur serveur');
-                }
-            } catch (e) { 
-                console.error('Erreur lors de l\'ajout:', e);
-                showToast('Erreur lors de l\'ajout de l\'entité', 'error'); 
-            }
-        },
-        async update(entity) {
-            try { 
-                await fetch(`/entities/${jobId}/${entity.id}`, { 
-                    method: 'PUT', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify(entity) 
-                }); 
-            } catch (e) {
-                console.error('Erreur lors de la mise à jour:', e);
-            }
-        },
-        async remove(id) {
-            try { 
-                await fetch(`/entities/${jobId}/${id}`, { method: 'DELETE' }); 
-                this.items = this.items.filter(e => e.id !== id); 
-                showToast('Entité supprimée', 'success'); 
-            } catch (e) { 
-                console.error('Erreur lors de la suppression:', e);
-                showToast('Erreur lors de la suppression', 'error'); 
-            }
-        }
-    }
-});
-
-const useGroupStore = defineStore('groups', {
-    state: () => ({ items: [] }),
-    actions: {
-        async fetch() { 
-            try { 
-                const res = await fetch(`/groups/${jobId}`); 
-                if (res.ok) { 
-                    this.items = await res.json(); 
-                } 
-            } catch (e) {
-                console.error('Erreur lors du chargement des groupes:', e);
-            } 
-        },
-        async add(group) {
-            try { 
-                const res = await fetch(`/groups/${jobId}`, { 
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify(group) 
-                });
-                if (res.ok) { 
-                    this.items.push(await res.json()); 
-                    showToast('Groupe créé avec succès', 'success'); 
-                }
-            } catch (e) { 
-                console.error('Erreur lors de la création du groupe:', e);
-                showToast('Erreur lors de la création du groupe', 'error'); 
-            }
-        },
-        async remove(id) {
-            try { 
-                await fetch(`/groups/${jobId}/${id}`, { method: 'DELETE' }); 
-                this.items = this.items.filter(g => g.id !== id); 
-                showToast('Groupe supprimé', 'success'); 
-            } catch (e) { 
-                console.error('Erreur lors de la suppression du groupe:', e);
-                showToast('Erreur lors de la suppression du groupe', 'error'); 
-            }
-        },
-        async assign(entityId, groupId) {
-            try {
-                const res = await fetch(`/groups/${jobId}/${groupId}/entities/${entityId}`, { method: 'POST' });
-                if (res.ok) {
-                    const updated = await res.json();
-                    const idx = this.items.findIndex(g => g.id === updated.id);
-                    if (idx !== -1) this.items[idx] = updated;
-                    showToast('Entité assignée au groupe', 'success');
-                }
-            } catch (e) { 
-                console.error('Erreur lors de l\'assignation:', e);
-                showToast('Erreur lors de l\'assignation', 'error'); 
-            }
-        }
-    }
-});
-
-// Application Vue
-const pinia = createPinia();
-createApp({
-    setup() {
-        const status = ref(null);
-        const processingMode = ref('regex');
-        const view = ref('anonymized');
-        const docType = ref('');
-        const zoom = ref(1);
-        const currentPage = ref(1);
-        const totalPages = ref(1);
-        const activeTab = ref('entities');
-        const searchTerm = ref('');
-        const searchType = ref('text');
-        const searchResults = ref([]);
-        const selected = ref([]);
-        const bulkGroup = ref('');
-        const dragIndex = ref(null);
-        const showDetectionModal = ref(false);
-        const showGroupModal = ref(false);
-        const showExportModal = ref(false);
-        const newDetection = ref({ type: '', value: '', replacement: '', page: null });
-        const newGroupName = ref('');
-        const watermark = ref('');
-        const wantAudit = ref(false);
-        const history = ref([]);
-        const future = ref([]);
-        
-        const entityStore = useEntityStore();
-        const groupStore = useGroupStore();
-        const entities = computed(() => entityStore.items);
-
-        // Fonctions utilitaires
-        const loadStatus = async () => {
-            try {
-                const res = await fetch(`/status/${jobId}`);
-                if (!res.ok) throw new Error('Job not found');
-                const data = await res.json();
-                
-                if (data.result) {
-                    status.value = data.result;
-                    processingMode.value = data.mode || 'regex';
-                    docType.value = data.result.filename.split('.').pop().toLowerCase();
-                    
-                    // Charger les entités depuis le résultat si disponible
-                    if (data.result.entities && entityStore.items.length === 0) {
-                        entityStore.items = data.result.entities.map(e => ({ 
-                            replacement: '', 
-                            page: null, 
-                            confidence: null, 
-                            ...e 
-                        }));
-                    }
-                    
-                    await renderDocument();
-                } else {
-                    throw new Error('Pas de résultat disponible');
-                }
-            } catch (e) {
-                console.error('Erreur lors du chargement:', e);
-                showToast('Erreur lors du chargement du document', 'error');
-                setTimeout(() => { window.location.href = '/'; }, 3000);
-            }
-        };
-
-        const renderDocument = async () => {
-            if (!status.value) return;
-            
-            const container = document.getElementById('viewer');
-            container.innerHTML = '';
-            
-            try {
-                if (docType.value === 'pdf') {
-                    await renderPDF();
-                } else if (docType.value === 'docx') {
-                    await renderDOCX();
-                }
-            } catch (e) {
-                console.error('Erreur lors du rendu:', e);
-                showToast('Erreur lors du rendu du document', 'error');
-            }
-        };
-
-        const renderPDF = async () => {
-            try {
-                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                const url = view.value === 'original' ? status.value.original_url : (status.value.anonymized_url || status.value.original_url);
-                const loadingTask = pdfjsLib.getDocument(url);
-                const pdf = await loadingTask.promise;
-                totalPages.value = pdf.numPages;
-                
-                const container = document.getElementById('viewer');
-                const page = await pdf.getPage(currentPage.value);
-                const viewport = page.getViewport({ scale: zoom.value * 1.5 });
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-                canvas.className = 'block mx-auto shadow-lg rounded';
-                
-                container.appendChild(canvas);
-                await page.render({ canvasContext: ctx, viewport }).promise;
-                
-                // Ajouter les highlights si nécessaire
-                if (view.value === 'anonymized') {
-                    highlightPDFEntities();
-                }
-            } catch (e) {
-                console.error('Erreur rendu PDF:', e);
-                throw e;
-            }
-        };
-
-        const renderDOCX = async () => {
-            try {
-                const url = view.value === 'original' ? status.value.original_url : status.value.anonymized_url;
-                const response = await fetch(url);
-                const arrayBuffer = await response.arrayBuffer();
-                
-                const container = document.getElementById('viewer');
-                await docx.renderAsync(arrayBuffer, container, null, {
-                    className: 'docx-wrapper',
-                    inWrapper: true,
-                    ignoreWidth: false,
-                    ignoreHeight: false,
-                    ignoreFonts: false,
-                    breakPages: true
-                });
-                
-                totalPages.value = 1;
-                
-                // Ajouter les highlights si nécessaire
-                if (view.value === 'anonymized') {
-                    highlightDOCXEntities();
-                }
-            } catch (e) {
-                console.error('Erreur rendu DOCX:', e);
-                throw e;
-            }
-        };
-
-        const highlightPDFEntities = () => {
-            if (!status.value || !status.value.entities) return;
-            
-            status.value.entities.forEach(ent => {
-                if (ent.page === currentPage.value && ent.x !== undefined && ent.y !== undefined) {
-                    const container = document.getElementById('viewer');
-                    const highlight = document.createElement('div');
-                    highlight.className = 'pdf-highlight absolute';
-                    highlight.style.left = `${ent.x}px`;
-                    highlight.style.top = `${ent.y}px`;
-                    highlight.style.width = `${ent.width}px`;
-                    highlight.style.height = `${ent.height}px`;
-                    highlight.title = `${ent.type}: ${ent.value}`;
-                    container.appendChild(highlight);
-                }
-            });
-        };
-
-        const highlightDOCXEntities = () => {
-            // Simplification pour éviter les erreurs
-            const container = document.getElementById('viewer');
-            const spans = container.querySelectorAll('span');
-            spans.forEach(span => {
-                if (span.textContent && span.textContent.match(/\[[A-Z_]+\]/)) {
-                    span.classList.add('entity-highlight');
-                    span.title = `Entité anonymisée: ${span.textContent}`;
-                }
-            });
-        };
-
-        // Actions de l'interface
-        const changeView = async (newView) => {
-            view.value = newView;
-            await renderDocument();
-        };
-
-        const zoomIn = () => {
-            zoom.value = Math.min(3, zoom.value + 0.1);
-            if (docType.value === 'pdf') renderDocument();
-        };
-
-        const zoomOut = () => {
-            zoom.value = Math.max(0.3, zoom.value - 0.1);
-            if (docType.value === 'pdf') renderDocument();
-        };
-
-        const nextPage = () => {
-            if (currentPage.value < totalPages.value) {
-                currentPage.value += 1;
-                if (docType.value === 'pdf') renderDocument();
-            }
-        };
-
-        const prevPage = () => {
-            if (currentPage.value > 1) {
-                currentPage.value -= 1;
-                if (docType.value === 'pdf') renderDocument();
-            }
-        };
-
-        const toggleEntitySelection = (id) => {
-            const index = selected.value.indexOf(id);
-            if (index > -1) {
-                selected.value.splice(index, 1);
-            } else {
-                selected.value.push(id);
-            }
-        };
-
-        const toggleAll = (event) => {
-            if (event.target.checked) {
-                selected.value = entityStore.items.map(ent => ent.id);
-            } else {
-                selected.value = [];
-            }
-        };
-
-        const updateEntity = async (entity) => {
-            await entityStore.update(entity);
-        };
-
-        const deleteSelected = async () => {
-            if (selected.value.length === 0) return;
-            
-            for (const id of selected.value) {
-                await entityStore.remove(id);
-            }
-            selected.value = [];
-        };
-
-        const confirmDetection = async () => {
-            if (!newDetection.value.type || !newDetection.value.value) return;
-            
-            await entityStore.add({
-                id: crypto.randomUUID(),
-                type: newDetection.value.type,
-                value: newDetection.value.value,
-                replacement: newDetection.value.replacement || '',
-                page: newDetection.value.page || currentPage.value,
-                start: 0,
-                end: 0
-            });
-            
-            newDetection.value = { type: '', value: '', replacement: '', page: null };
-            showDetectionModal.value = false;
-        };
-
-        const confirmGroup = async () => {
-            if (!newGroupName.value) return;
-            
-            await groupStore.add({
-                id: crypto.randomUUID(),
-                name: newGroupName.value,
-                entities: []
-            });
-            
-            newGroupName.value = '';
-            showGroupModal.value = false;
-        };
-
-        const deleteGroup = async (id) => {
-            await groupStore.remove(id);
-        };
-
-        const groupSelected = async () => {
-            if (!bulkGroup.value || selected.value.length === 0) return;
-            
-            for (const entityId of selected.value) {
-                await groupStore.assign(entityId, bulkGroup.value);
-            }
-            
-            selected.value = [];
-            bulkGroup.value = '';
-        };
-
-        const assignToGroup = async (groupId, event) => {
-            const entityId = event.dataTransfer.getData('text/plain');
-            if (entityId) {
-                await groupStore.assign(entityId, groupId);
-            }
-        };
-
-        const dragStart = (index, event) => {
-            dragIndex.value = index;
-            event.dataTransfer.setData('text/plain', entityStore.items[index].id);
-        };
-
-        const drop = (index) => {
-            if (dragIndex.value === null) return;
-            
-            const item = entityStore.items.splice(dragIndex.value, 1)[0];
-            entityStore.items.splice(index, 0, item);
-            dragIndex.value = null;
-        };
-
-        const search = async () => {
-            if (!searchTerm.value) return;
-            
-            try {
-                if (searchType.value === 'semantic') {
-                    const res = await fetch(`/semantic-search/${jobId}?q=${encodeURIComponent(searchTerm.value)}`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        searchResults.value = data.matches.map(m => ({ text: m, page: null }));
-                    }
-                } else {
-                    // Recherche simple dans le texte
-                    const container = document.getElementById('viewer');
-                    const text = container.textContent || '';
-                    const regex = searchType.value === 'regex' 
-                        ? new RegExp(searchTerm.value, 'gi')
-                        : new RegExp(searchTerm.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-                    
-                    const matches = [];
-                    let match;
-                    while ((match = regex.exec(text)) !== null && matches.length < 50) {
-                        matches.push({
-                            text: match[0],
-                            page: currentPage.value,
-                            start: match.index,
-                            end: match.index + match[0].length
-                        });
-                    }
-                    searchResults.value = matches;
-                }
-                
-                showToast(`${searchResults.value.length} résultat(s) trouvé(s)`, 'info');
-            } catch (e) {
-                console.error('Erreur lors de la recherche:', e);
-                showToast('Erreur lors de la recherche', 'error');
-            }
-        };
-
-        const addSearchResultAsEntity = async (result) => {
-            await entityStore.add({
-                id: crypto.randomUUID(),
-                type: 'UNKNOWN',
-                value: result.text,
-                replacement: '',
-                page: result.page || currentPage.value,
-                start: result.start || 0,
-                end: result.end || 0
-            });
-            showToast('Résultat ajouté comme entité', 'success');
-        };
-
-        const exportDoc = async () => {
-            try {
-                const res = await fetch(`/export/${jobId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ watermark: '', audit: false })
-                });
-                
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.download_url) {
-                        window.location.href = data.download_url;
-                        showToast('Document exporté avec succès', 'success');
-                    }
-                } else {
-                    throw new Error('Export failed');
-                }
-            } catch (e) {
-                console.error('Erreur lors de l\'export:', e);
-                showToast('Erreur lors de l\'export', 'error');
-            }
-        };
-
-        const exportWithOptions = async () => {
-            try {
-                const res = await fetch(`/export/${jobId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        watermark: watermark.value, 
-                        audit: wantAudit.value 
-                    })
-                });
-                
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.download_url) {
-                        window.location.href = data.download_url;
-                    }
-                    if (data.audit_url) {
-                        window.open(data.audit_url, '_blank');
-                    }
-                    showToast('Document exporté avec succès', 'success');
-                } else {
-                    throw new Error('Export failed');
-                }
-            } catch (e) {
-                console.error('Erreur lors de l\'export:', e);
-                showToast('Erreur lors de l\'export', 'error');
-            }
-            showExportModal.value = false;
-        };
-
-        const undo = () => {
-            if (history.value.length === 0) return;
-            // Logique d'annulation simplifiée
-            showToast('Fonction d\'annulation en cours de développement', 'info');
-        };
-
-        const redo = () => {
-            if (future.value.length === 0) return;
-            // Logique de rétablissement simplifiée
-            showToast('Fonction de rétablissement en cours de développement', 'info');
-        };
-
-        const getEntityTypeClass = (type) => mapEntityTypeClass(type);
-
-        const getEntityById = (id) => entityStore.items.find(e => e.id === id);
-
-        const onTextSelection = () => {
-            // Gestion de la sélection de texte simplifiée
-        };
-
-        // Initialisation
-        onMounted(async () => {
-            try {
-                await loadStatus();
-                await entityStore.fetch();
-                await groupStore.fetch();
-                showToast('Interface chargée avec succès', 'success');
-            } catch (e) {
-                console.error('Erreur lors de l\'initialisation:', e);
-                showToast('Erreur lors de l\'initialisation', 'error');
-            }
-        });
-
-        return {
-            // État
-            status, processingMode, view, docType, zoom, currentPage, totalPages,
-            activeTab, searchTerm, searchType, searchResults, selected, bulkGroup,
-            dragIndex, showDetectionModal, showGroupModal, showExportModal,
-            newDetection, newGroupName, watermark, wantAudit, history, future,
-            entityStore, groupStore, entities,
-            
-            // Actions
-            changeView, zoomIn, zoomOut, nextPage, prevPage, toggleEntitySelection,
-            toggleAll, updateEntity, deleteSelected, confirmDetection, confirmGroup,
-            deleteGroup, groupSelected, assignToGroup, dragStart, drop, search,
-            addSearchResultAsEntity, exportDoc, exportWithOptions, undo, redo,
-            getEntityTypeClass, getEntityById, onTextSelection
-        };
-    }
-}).use(pinia).mount('#app');
-</script>
+    <!-- APPLICATION VUE.JS DANS FICHIER SÉPARÉ -->
+    <script src="/static/js/interface-app.js"></script>
 </body>
 </html>
