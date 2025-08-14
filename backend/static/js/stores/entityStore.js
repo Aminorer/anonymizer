@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia';
 import { utils } from '../utils.js';
+import { apiClient } from '../services/apiClient.js';
 
 // Store managing detected entities
 export const useEntityStore = defineStore('entities', {
     state: () => ({
         items: [],
-        loading: false,
+        status: 'idle',
         error: null
     }),
 
@@ -22,14 +23,10 @@ export const useEntityStore = defineStore('entities', {
 
     actions: {
         async fetch(jobId) {
-            this.loading = true;
+            this.status = 'loading';
             this.error = null;
             try {
-                const response = await fetch(`/entities/${jobId}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                const data = await response.json();
+                const data = await apiClient.request(`/entities/${jobId}`);
                 this.items = data.map(entity => ({
                     replacement: '',
                     page: null,
@@ -37,86 +34,74 @@ export const useEntityStore = defineStore('entities', {
                     selected: false,
                     ...entity
                 }));
+                this.status = 'loaded';
             } catch (error) {
                 this.error = error.message;
-                if (window.toastService) {
-                    window.toastService.error('Erreur lors du chargement des entités');
-                }
-            } finally {
-                this.loading = false;
+                this.status = 'error';
             }
         },
 
         async add(jobId, entity) {
+            const temp = { selected: false, id: entity.id || utils.generateId(), ...entity };
+            this.items.push(temp);
             try {
-                const response = await fetch(`/entities/${jobId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id: entity.id || utils.generateId(),
-                        ...entity
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const savedEntity = await response.json();
-                this.items.push({ selected: false, ...savedEntity });
+                const savedEntity = await apiClient.request(
+                    `/entities/${jobId}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(temp)
+                    },
+                    () => {
+                        this.items = this.items.filter(item => item.id !== temp.id);
+                    }
+                );
+                Object.assign(temp, savedEntity);
                 if (window.toastService) {
                     window.toastService.success('Entité ajoutée avec succès');
                 }
                 return savedEntity;
             } catch (error) {
-                if (window.toastService) {
-                    window.toastService.error("Erreur lors de l'ajout de l'entité");
-                }
                 throw error;
             }
         },
 
         async update(jobId, entity) {
+            const index = this.items.findIndex(item => item.id === entity.id);
+            if (index === -1) return;
+            const previous = { ...this.items[index] };
+            this.items[index] = { ...this.items[index], ...entity };
             try {
-                const response = await fetch(`/entities/${jobId}/${entity.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(entity)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const index = this.items.findIndex(item => item.id === entity.id);
-                if (index !== -1) {
-                    this.items[index] = { ...this.items[index], ...entity };
-                }
-
+                await apiClient.request(
+                    `/entities/${jobId}/${entity.id}`,
+                    {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(entity)
+                    },
+                    () => {
+                        this.items[index] = previous;
+                    }
+                );
                 return entity;
             } catch (error) {
-                if (window.toastService) {
-                    window.toastService.error('Erreur lors de la mise à jour');
-                }
                 throw error;
             }
         },
 
         async remove(jobId, entityId) {
+            const index = this.items.findIndex(item => item.id === entityId);
+            if (index === -1) return;
+            const removed = this.items.splice(index, 1)[0];
             try {
-                const response = await fetch(`/entities/${jobId}/${entityId}`, {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                this.items = this.items.filter(item => item.id !== entityId);
+                await apiClient.request(
+                    `/entities/${jobId}/${entityId}`,
+                    { method: 'DELETE' },
+                    () => {
+                        this.items.splice(index, 0, removed);
+                    }
+                );
             } catch (error) {
-                if (window.toastService) {
-                    window.toastService.error('Erreur lors de la suppression');
-                }
                 throw error;
             }
         },

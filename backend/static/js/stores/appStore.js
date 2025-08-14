@@ -17,7 +17,7 @@ export const useAppStore = defineStore('app', {
         currentPage: 1,
         totalPages: 1,
         docType: '',
-        loading: false,
+        fetchStatus: 'idle',
         searchTerm: '',
         searchResults: [],
         searchType: 'text'
