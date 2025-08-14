@@ -671,6 +671,54 @@
                 const showGroupModal = ref(false);
                 const showExportModal = ref(false);
 
+                watch(showDetectionModal, (newVal, oldVal) => {
+                    console.log(`🔍 DETECTION MODAL: ${oldVal} → ${newVal}`);
+                    if (newVal) {
+                        console.log('🚨 DETECTION MODAL OUVERT !');
+                        console.trace('Stack trace complet:');
+                        }
+                });
+
+                watch(showGroupModal, (newVal, oldVal) => {
+                    console.log(`🔍 GROUP MODAL: ${oldVal} → ${newVal}`);
+                    if (newVal) {
+                        console.log('🚨 GROUP MODAL OUVERT !');
+                        console.trace('Stack trace complet:');
+                    }
+                });
+
+                watch(showExportModal, (newVal, oldVal) => {
+                    console.log(`🔍 EXPORT MODAL: ${oldVal} → ${newVal}`);
+                    if (newVal) {
+                        console.log('🚨 EXPORT MODAL OUVERT !');
+                        console.trace('Stack trace complet:');
+                    }
+                });
+
+                onMounted(async () => {
+                    console.log('🔄 MOUNTED - État initial des modals:');
+                    console.log('Detection:', showDetectionModal.value);
+                    console.log('Group:', showGroupModal.value);
+                    console.log('Export:', showExportModal.value);
+    
+                    try {
+                        await Promise.all([
+                            loadJobStatus(),
+                            entityStore.fetch(jobId),
+                            groupStore.fetch(jobId)
+                        ]);
+        
+                        console.log('✅ APRÈS CHARGEMENT - État des modals:');
+                        console.log('Detection:', showDetectionModal.value);
+                        console.log('Group:', showGroupModal.value);
+                        console.log('Export:', showExportModal.value);
+        
+                    } catch (error) {
+                        console.error('App initialization error:', error);
+                        toastService.error('Erreur lors de l\'initialisation');
+                    }
+                });
+
                 // Forms
                 const newDetection = ref({
                     type: '',
@@ -998,16 +1046,12 @@
 
                 const openGroupModal = () => {
                     showGroupModal.value = true;
+
                 };
 
                 const openExportModal = () => {
                     showExportModal.value = true;
-                    nextTick(() => {
-                        const modal = document.getElementById('export-modal');
-                        if (modal) {
-                            modal.classList.remove('hidden');
-                        }
-                    });
+
                 };
 
                 // Méthodes de confirmation et fermeture
