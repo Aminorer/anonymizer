@@ -6,6 +6,13 @@
 (function() {
     'use strict';
 
+    const DEBUG = false;
+
+    if (DEBUG) {
+        console.log('typeof Vue:', typeof Vue);
+        console.log('typeof Pinia:', typeof Pinia);
+    }
+
     const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
     const { createPinia, defineStore } = Pinia;
 
@@ -1425,7 +1432,10 @@
         app.config.compilerOptions.delimiters = ['[[', ']]'];
 
         app.use(pinia);
-        app.mount('#app');
+        const mountedApp = app.mount('#app');
+        if (DEBUG) {
+            console.log('Mounted app instance:', mountedApp);
+        }
 
         return app;
     }
