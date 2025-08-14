@@ -267,6 +267,23 @@
                     throw new Error('group add failed');
                 }
             },
+            async update(jobId, group) {
+                try {
+                    const response = await fetch(`/groups/${jobId}/${group.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(group)
+                    });
+                    if (!response.ok) throw new Error('Failed to update group');
+                    const index = this.items.findIndex(item => item.id === group.id);
+                    if (index !== -1) this.items[index] = { ...this.items[index], ...group };
+                    console.log('Groupe mis à jour');
+                    return group;
+                } catch {
+                    console.log('Erreur lors de la mise à jour du groupe');
+                    throw new Error('group update failed');
+                }
+            },
             async remove(jobId, groupId) {
                 try {
                     const response = await fetch(`/groups/${jobId}/${groupId}`, { method: 'DELETE' });
@@ -328,6 +345,18 @@
                 this.status = status;
                 if (status && status.filename) this.docType = status.filename.split('.').pop().toLowerCase();
             },
+            async fetchStatus(jobId) {
+                try {
+                    const response = await fetch(`/status/${jobId}`);
+                    if (!response.ok) throw new Error('Job not found');
+                    const statusData = await response.json();
+                    this.setStatus(statusData.result);
+                    this.processingMode = statusData.mode || 'regex';
+                    return statusData;
+                } catch {
+                    throw new Error('status fetch failed');
+                }
+            },
             saveState(entityStore, groupStore) {
                 const state = {
                     entities: JSON.parse(JSON.stringify(entityStore.items)),
@@ -378,6 +407,16 @@
                     this.searchHistory.unshift(term);
                     if (this.searchHistory.length > 10) this.searchHistory.pop();
                 }
+            },
+            setSearchTerm(term) { this.searchTerm = term; },
+            clearSearch() { this.searchTerm = ''; this.searchResults = []; },
+            performSearch(entityStore) {
+                const term = this.searchTerm.trim().toLowerCase();
+                if (!term) { this.searchResults = []; return; }
+                this.searchResults = entityStore.items.filter(e =>
+                    e.text && e.text.toLowerCase().includes(term)
+                );
+                this.addToSearchHistory(term);
             }
         }
     });
@@ -441,6 +480,130 @@
         }
     };
 
+    const EntitiesSection = {
+        template: `
+            <section>
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-lg font-semibold">Entités ({{ entityStore.totalCount }})</h2>
+                    <button class="text-xs text-blue-600" @click="loadEntities">Recharger</button>
+                </div>
+                <form class="space-y-1 mb-2" @submit.prevent="addEntity">
+                    <input v-model="newEntity.text" placeholder="Texte" class="w-full border px-2 py-1 text-sm rounded" />
+                    <input v-model="newEntity.type" placeholder="Type" class="w-full border px-2 py-1 text-sm rounded" />
+                    <button type="submit" class="btn-primary w-full mt-1">Ajouter</button>
+                </form>
+                <ul class="space-y-1">
+                    <li v-for="e in entityStore.items" :key="e.id" class="flex justify-between items-center text-sm">
+                        <span>{{ e.text }} <span class="text-gray-500">({{ e.type }})</span></span>
+                        <div class="space-x-1">
+                            <button class="text-blue-600" @click="editEntity(e)">Éditer</button>
+                            <button class="text-red-600" @click="removeEntity(e.id)">X</button>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+        `,
+        setup() {
+            const entityStore = useEntityStore();
+            const appStore = useAppStore();
+            const newEntity = ref({ text: '', type: '' });
+
+            const loadEntities = () => entityStore.fetch(appStore.jobId);
+            const addEntity = async () => {
+                if (!newEntity.value.text || !newEntity.value.type) return;
+                await entityStore.add(appStore.jobId, newEntity.value);
+                newEntity.value = { text: '', type: '' };
+            };
+            const removeEntity = async (id) => {
+                await entityStore.remove(appStore.jobId, id);
+            };
+            const editEntity = async (entity) => {
+                const text = prompt('Texte', entity.text);
+                if (text === null) return;
+                const type = prompt('Type', entity.type);
+                if (type === null) return;
+                await entityStore.update(appStore.jobId, { ...entity, text, type });
+            };
+
+            onMounted(() => {
+                if (!entityStore.items.length && appStore.jobId) loadEntities();
+            });
+
+            return { entityStore, newEntity, loadEntities, addEntity, removeEntity, editEntity };
+        }
+    };
+
+    const GroupsSection = {
+        template: `
+            <section>
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-lg font-semibold">Groupes ({{ groupStore.totalCount }})</h2>
+                    <button class="text-xs text-blue-600" @click="loadGroups">Recharger</button>
+                </div>
+                <form class="mb-2 flex space-x-1" @submit.prevent="addGroup">
+                    <input v-model="newGroup.name" placeholder="Nom" class="flex-1 border px-2 py-1 text-sm rounded" />
+                    <button type="submit" class="btn-primary px-2">Ajouter</button>
+                </form>
+                <ul class="space-y-1">
+                    <li v-for="g in groupStore.items" :key="g.id" class="flex justify-between items-center text-sm">
+                        <span>{{ g.name }}</span>
+                        <div class="space-x-1">
+                            <button class="text-blue-600" @click="renameGroup(g)">Renommer</button>
+                            <button class="text-red-600" @click="removeGroup(g.id)">X</button>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+        `,
+        setup() {
+            const groupStore = useGroupStore();
+            const appStore = useAppStore();
+            const newGroup = ref({ name: '' });
+
+            const loadGroups = () => groupStore.fetch(appStore.jobId);
+            const addGroup = async () => {
+                if (!newGroup.value.name) return;
+                await groupStore.add(appStore.jobId, newGroup.value);
+                newGroup.value = { name: '' };
+            };
+            const removeGroup = async (id) => {
+                await groupStore.remove(appStore.jobId, id);
+            };
+            const renameGroup = async (group) => {
+                const name = prompt('Nom du groupe', group.name);
+                if (name === null) return;
+                await groupStore.update(appStore.jobId, { ...group, name });
+            };
+
+            onMounted(() => {
+                if (!groupStore.items.length && appStore.jobId) loadGroups();
+            });
+
+            return { groupStore, newGroup, loadGroups, addGroup, removeGroup, renameGroup };
+        }
+    };
+
+    const SearchSection = {
+        template: `
+            <section>
+                <h2 class="text-lg font-semibold mb-2">Recherche</h2>
+                <input :value="appStore.searchTerm" @input="onTermChange($event.target.value)" placeholder="Rechercher une entité..." class="w-full border px-2 py-1 text-sm rounded" />
+                <ul v-if="appStore.searchResults.length" class="mt-2 space-y-1">
+                    <li v-for="r in appStore.searchResults" :key="r.id" class="text-sm">{{ r.text }} <span class="text-gray-500">({{ r.type }})</span></li>
+                </ul>
+                <p v-else class="text-sm text-gray-500 mt-2">Aucun résultat</p>
+            </section>
+        `,
+        setup() {
+            const appStore = useAppStore();
+            const entityStore = useEntityStore();
+            const perform = utils.debounce(() => appStore.performSearch(entityStore), CONFIG.SEARCH_DEBOUNCE);
+            const onTermChange = (val) => appStore.setSearchTerm(val);
+            watch(() => appStore.searchTerm, () => perform());
+            return { appStore, onTermChange };
+        }
+    };
+
     function initializeApp() {
         const jobId = new URLSearchParams(window.location.search).get('job_id');
         if (!jobId) { window.location.href = '/'; return; }
@@ -448,6 +611,7 @@
 
         const pinia = createPinia();
         const app = createApp({
+            components: { EntitiesSection, GroupsSection, SearchSection },
             template: `
                 <div class="flex flex-col min-h-screen">
                     <!-- Header -->
@@ -461,13 +625,10 @@
 
                     <div class="flex flex-1 overflow-hidden">
                         <!-- Sidebar -->
-                        <aside class="sidebar w-64 p-4 overflow-y-auto">
-                            <h2 class="text-lg font-semibold mb-4">Entités ({{ entityStore.totalCount }})</h2>
-                            <ul class="space-y-2">
-                                <li v-for="e in entityStore.items" :key="e.id" class="text-sm">
-                                    {{ e.text }} <span class="text-gray-500">({{ e.type }})</span>
-                                </li>
-                            </ul>
+                        <aside class="sidebar w-64 p-4 overflow-y-auto space-y-6">
+                            <entities-section />
+                            <groups-section />
+                            <search-section />
                         </aside>
 
                         <!-- Viewer -->
@@ -527,11 +688,7 @@
                     try {
                         appStore.loading = true;
                         appStore.setJobId(jobId);
-                        const statusResponse = await fetch(`/status/${jobId}`);
-                        if (!statusResponse.ok) throw new Error('Job not found');
-                        const statusData = await statusResponse.json();
-                        appStore.setStatus(statusData.result);
-                        appStore.processingMode = statusData.mode || 'regex';
+                        await appStore.fetchStatus(jobId);
                         await Promise.all([entityStore.fetch(jobId), groupStore.fetch(jobId)]);
                         console.log('Document chargé avec succès');
                     } catch {
