@@ -442,6 +442,7 @@
                 const appStore = useAppStore();
                 const entityStore = useEntityStore();
                 const groupStore = useGroupStore();
+                const showModal = ref(false);
                 
                 const loadData = async () => {
                     try {
@@ -469,7 +470,8 @@
                 return {
                     appStore,
                     entityStore,
-                    groupStore
+                    groupStore,
+                    showModal
                 };
             }
         });
