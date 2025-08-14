@@ -4,6 +4,17 @@
     const { createApp, ref, onMounted, computed, watch } = Vue;
     const { createPinia, defineStore } = Pinia;
 
+    const AppConfig = {
+        ENABLE_AUTO_NOTIFICATIONS: false,
+        ALLOWED_AUTO_NOTIFICATIONS: [],
+        TOAST_CONFIG: {
+            DURATION: 5000,
+            AUTO_HIDE: true,
+            POSITION: 'top-right'
+        }
+    };
+    window.AppConfig = AppConfig;
+
     const CONFIG = {
         MAX_HISTORY_SIZE: 50,
         TOAST_DURATION: 5000,
