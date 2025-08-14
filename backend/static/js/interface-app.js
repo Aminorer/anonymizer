@@ -647,9 +647,11 @@
             return;
         }
 
-        const pinia = createPinia();
-
-        const app = createApp({
+        let pinia;
+        let app;
+        try {
+            pinia = createPinia();
+            app = createApp({
             setup() {
                 // ================================================================
                 // STORES
@@ -1406,7 +1408,18 @@
                     onTextSelection
                 };
             }
-        });
+            });
+        } catch (error) {
+            console.error("Impossible de créer l'application Vue (Pinia manquant ?)", error);
+            toastService.error("Erreur lors de l'initialisation de l'application");
+            return;
+        }
+
+        if (!app) {
+            console.error("Instance de l'application Vue non créée");
+            toastService.error("Erreur lors de l'initialisation de l'application");
+            return;
+        }
 
         // Configuration Vue pour utiliser [[ ]] au lieu de {{ }}
         app.config.compilerOptions.delimiters = ['[[', ']]'];
