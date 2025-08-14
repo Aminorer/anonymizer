@@ -255,6 +255,11 @@
                         </div>
                         <div v-else id="viewer" class="w-full h-full overflow-auto">
                             <div v-if="documentUrl" class="document-container m-4">
+                                <!-- Debug info -->
+                                <div class="bg-blue-50 border border-blue-200 rounded p-2 mb-2 text-sm">
+                                    <strong>Document:</strong> {% raw %}{{ documentUrl }}{% endraw %}
+                                </div>
+                                
                                 <!-- Try iframe first -->
                                 <iframe :src="documentUrl" 
                                         class="document-iframe"
@@ -273,6 +278,14 @@
                                         <i class="fas fa-external-link-alt mr-2"></i>
                                         Ouvrir le document
                                     </a>
+                                </div>
+                                
+                                <!-- Show fallback after 3 seconds if iframe doesn't load -->
+                                <div class="mt-4 text-center">
+                                    <button @click="showDocumentFallback = true" 
+                                            class="text-blue-600 hover:text-blue-800 text-sm underline">
+                                        Le document ne s'affiche pas ? Cliquez ici pour le télécharger
+                                    </button>
                                 </div>
                             </div>
                             <div v-else class="flex items-center justify-center h-full text-gray-500">
@@ -438,11 +451,13 @@
 
                     try {
                         isLoading.value = true;
+                        console.log('Loading data for job:', jobId.value);
                         
                         // Load job status
                         const statusResponse = await fetch(`/status/${jobId.value}`);
                         if (!statusResponse.ok) throw new Error('Job not found');
                         const statusData = await statusResponse.json();
+                        console.log('Status data:', statusData);
                         
                         if (statusData.status !== 'completed') {
                             throw new Error('Job not completed');
@@ -454,21 +469,51 @@
                             documentUrl.value = currentView.value === 'original' 
                                 ? statusData.result.original_url 
                                 : statusData.result.anonymized_url;
+                            console.log('Document URL:', documentUrl.value);
                             // Reset fallback when URL changes
                             showDocumentFallback.value = false;
+                            
+                            // Load entities from result if available
+                            if (statusData.result.entities && statusData.result.entities.length > 0) {
+                                console.log('Loading entities from result:', statusData.result.entities.length);
+                                entities.value = statusData.result.entities.map(entity => ({
+                                    id: entity.id || `entity_${Math.random().toString(36).substr(2, 9)}`,
+                                    ...entity
+                                }));
+                            }
                         }
                         
-                        // Load entities
-                        const entitiesResponse = await fetch(`/entities/${jobId.value}`);
-                        if (entitiesResponse.ok) {
-                            entities.value = await entitiesResponse.json();
+                        // Try to load entities from API
+                        try {
+                            const entitiesResponse = await fetch(`/entities/${jobId.value}`);
+                            if (entitiesResponse.ok) {
+                                const apiEntities = await entitiesResponse.json();
+                                console.log('API entities:', apiEntities.length);
+                                if (apiEntities.length > 0) {
+                                    entities.value = apiEntities;
+                                }
+                            }
+                        } catch (entErr) {
+                            console.log('Could not load entities from API:', entErr);
                         }
                         
-                        // Load groups
-                        const groupsResponse = await fetch(`/groups/${jobId.value}`);
-                        if (groupsResponse.ok) {
-                            groups.value = await groupsResponse.json();
+                        // Try to load groups from API
+                        try {
+                            const groupsResponse = await fetch(`/groups/${jobId.value}`);
+                            if (groupsResponse.ok) {
+                                const apiGroups = await groupsResponse.json();
+                                console.log('API groups:', apiGroups.length);
+                                groups.value = apiGroups;
+                            }
+                        } catch (grpErr) {
+                            console.log('Could not load groups from API:', grpErr);
                         }
+                        
+                        console.log('Final loaded data:', {
+                            entities: entities.value.length,
+                            groups: groups.value.length,
+                            documentUrl: documentUrl.value
+                        });
                         
                     } catch (err) {
                         console.error('Error loading data:', err);
