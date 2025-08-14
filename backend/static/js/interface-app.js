@@ -445,16 +445,84 @@
         const jobId = new URLSearchParams(window.location.search).get('job_id');
         if (!jobId) { window.location.href = '/'; return; }
         notificationSystem.init();
-        documentRenderer.init('viewer');
-        
+
         const pinia = createPinia();
         const app = createApp({
+            template: `
+                <div class="flex flex-col min-h-screen">
+                    <!-- Header -->
+                    <header class="app-header px-4 py-2 flex items-center justify-between">
+                        <h1 class="text-xl font-semibold">Interface d'anonymisation</h1>
+                        <div class="flex items-center space-x-2">
+                            <button class="text-white px-3 py-1 bg-blue-600 rounded" @click="appStore.changeView('original')">Original</button>
+                            <button class="text-white px-3 py-1 bg-blue-600 rounded" @click="appStore.changeView('anonymized')">Anonymisé</button>
+                        </div>
+                    </header>
+
+                    <div class="flex flex-1 overflow-hidden">
+                        <!-- Sidebar -->
+                        <aside class="sidebar w-64 p-4 overflow-y-auto">
+                            <h2 class="text-lg font-semibold mb-4">Entités ({{ entityStore.totalCount }})</h2>
+                            <ul class="space-y-2">
+                                <li v-for="e in entityStore.items" :key="e.id" class="text-sm">
+                                    {{ e.text }} <span class="text-gray-500">({{ e.type }})</span>
+                                </li>
+                            </ul>
+                        </aside>
+
+                        <!-- Viewer -->
+                        <main class="flex-1 p-4 overflow-auto">
+                            <div class="viewer-container h-full flex items-center justify-center">
+                                <div id="viewer" class="w-full"></div>
+                            </div>
+                        </main>
+                    </div>
+
+                    <!-- Footer -->
+                    <footer class="p-4 bg-white border-t">
+                        <div class="footer-actions justify-end">
+                            <button class="btn-secondary px-4 py-2 rounded" @click="appStore.zoomOut()" :disabled="appStore.zoom <= CONFIG.MIN_ZOOM">-</button>
+                            <span class="px-2">{{ (appStore.zoom * 100).toFixed(0) }}%</span>
+                            <button class="btn-secondary px-4 py-2 rounded" @click="appStore.zoomIn()" :disabled="appStore.zoom >= CONFIG.MAX_ZOOM">+</button>
+                        </div>
+                    </footer>
+
+                    <!-- Detection Modal -->
+                    <div v-if="showDetectionModal" class="modal-overlay fixed inset-0 flex items-center justify-center">
+                        <div class="modal-content bg-white p-6 rounded-lg w-full max-w-md">
+                            <div class="modal-header flex items-center mb-4">
+                                <span class="modal-icon"><i class="fas fa-search"></i></span>
+                                <h3 class="modal-title flex-1">Détection</h3>
+                                <button class="text-gray-500" @click="showDetectionModal=false">&times;</button>
+                            </div>
+                            <div class="modal-actions flex justify-end space-x-2">
+                                <button class="btn-secondary px-4 py-2 rounded" @click="showDetectionModal=false">Fermer</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Group Modal -->
+                    <div v-if="showGroupModal" class="modal-overlay fixed inset-0 flex items-center justify-center">
+                        <div class="modal-content bg-white p-6 rounded-lg w-full max-w-md">
+                            <div class="modal-header flex items-center mb-4">
+                                <span class="modal-icon"><i class="fas fa-layer-group"></i></span>
+                                <h3 class="modal-title flex-1">Groupes</h3>
+                                <button class="text-gray-500" @click="showGroupModal=false">&times;</button>
+                            </div>
+                            <div class="modal-actions flex justify-end space-x-2">
+                                <button class="btn-secondary px-4 py-2 rounded" @click="showGroupModal=false">Fermer</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `,
             setup() {
                 const appStore = useAppStore();
                 const entityStore = useEntityStore();
                 const groupStore = useGroupStore();
-                const showModal = ref(false);
-                
+                const showDetectionModal = ref(false);
+                const showGroupModal = ref(false);
+
                 const loadData = async () => {
                     try {
                         appStore.loading = true;
@@ -475,6 +543,7 @@
                 };
 
                 onMounted(() => {
+                    documentRenderer.init('viewer');
                     loadData();
                 });
 
@@ -482,7 +551,9 @@
                     appStore,
                     entityStore,
                     groupStore,
-                    showModal
+                    showDetectionModal,
+                    showGroupModal,
+                    CONFIG
                 };
             }
         });
