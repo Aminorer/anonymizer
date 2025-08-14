@@ -9,13 +9,64 @@
     <link rel="stylesheet" href="/static/css/interface.css">
 </head>
 <body class="bg-gray-50">
-    <div id="app"></div>
+    <div id="app" class="flex flex-col min-h-screen">
+        <!-- Header -->
+        <header class="app-header px-4 py-2 flex items-center justify-between">
+            <h1 class="text-xl font-semibold">Interface d'anonymisation</h1>
+            <div class="flex items-center space-x-2">
+                <button class="text-white px-3 py-1 bg-blue-600 rounded" @click="appStore.changeView('original')">Original</button>
+                <button class="text-white px-3 py-1 bg-blue-600 rounded" @click="appStore.changeView('anonymized')">Anonymisé</button>
+            </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Sidebar -->
+            <aside class="sidebar w-64 p-4 overflow-y-auto">
+                <h2 class="text-lg font-semibold mb-4">Entités ({{ entityStore.totalCount }})</h2>
+                <ul class="space-y-2">
+                    <li v-for="e in entityStore.items" :key="e.id" class="text-sm">
+                        {{ e.text }} <span class="text-gray-500">({{ e.type }})</span>
+                    </li>
+                </ul>
+            </aside>
+
+            <!-- Document viewer -->
+            <main class="flex-1 p-4 overflow-auto">
+                <div class="viewer-container h-full flex items-center justify-center">
+                    <div id="viewer" class="w-full"></div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Footer -->
+        <footer class="p-4 bg-white border-t">
+            <div class="footer-actions justify-end">
+                <button class="btn-secondary px-4 py-2 rounded" @click="appStore.zoomOut()" :disabled="!appStore.canZoomOut">-</button>
+                <span class="px-2">{{ (appStore.zoom * 100).toFixed(0) }}%</span>
+                <button class="btn-secondary px-4 py-2 rounded" @click="appStore.zoomIn()" :disabled="!appStore.canZoomIn">+</button>
+            </div>
+        </footer>
+
+        <!-- Example modal -->
+        <div v-if="showModal" class="modal-overlay fixed inset-0 flex items-center justify-center">
+            <div class="modal-content bg-white p-6 rounded-lg w-full max-w-md">
+                <div class="modal-header flex items-center mb-4">
+                    <span class="modal-icon"><i class="fas fa-info-circle"></i></span>
+                    <h3 class="modal-title flex-1">Information</h3>
+                    <button class="text-gray-500" @click="showModal=false">&times;</button>
+                </div>
+                <div class="modal-actions flex justify-end space-x-2">
+                    <button class="btn-secondary px-4 py-2 rounded" @click="showModal=false">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="/static/js/config.js"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://unpkg.com/pinia@2/dist/pinia.iife.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://unpkg.com/docx-preview@0.4.1/dist/docx-preview.js"></script>
-    <script type="module" src="/static/js/main.js"></script>
+    <script src="/static/js/interface-app.js"></script>
 </body>
 </html>
