@@ -45,9 +45,10 @@ const groupStore = useGroupStore();
 const jobId = new URLSearchParams(window.location.search).get('job_id');
 if (jobId) {
     appStore.setJobId(jobId);
-    // load initial data
-    entityStore.fetch(jobId);
-    groupStore.fetch(jobId);
+    appStore.fetchStatus = 'loading';
+    Promise.all([entityStore.fetch(jobId), groupStore.fetch(jobId)])
+        .then(() => { appStore.fetchStatus = 'loaded'; })
+        .catch(() => { appStore.fetchStatus = 'error'; });
 }
 
 app.mount('#app');
