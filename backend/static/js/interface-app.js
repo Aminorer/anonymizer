@@ -1421,9 +1421,6 @@
             return;
         }
 
-        // Configuration Vue pour utiliser [[ ]] au lieu de {{ }}
-        app.config.compilerOptions.delimiters = ['[[', ']]'];
-
         app.use(pinia);
         app.mount('#app');
 
