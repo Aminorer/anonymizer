@@ -3,734 +3,668 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interface d'anonymisation</title>
+    <title>Interface d'anonymisation avancée</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/css/interface.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <link rel="stylesheet" href="/static/css/interface-enhanced.css">
     <style>
-        body, * {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-            font-weight: 400 !important;
-        }
-        
-        .font-medium {
-            font-weight: 500 !important;
-        }
-        
-        .font-semibold {
-            font-weight: 600 !important;
-        }
-        
-        .font-bold {
-            font-weight: 700 !important;
+        /* Variables CSS pour thème cohérent */
+        :root {
+            --primary-blue: #3b82f6;
+            --primary-purple: #8b5cf6;
+            --success-green: #10b981;
+            --warning-orange: #f59e0b;
+            --error-red: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --border-radius: 8px;
+            --transition: all 0.2s ease;
         }
 
-        /* Better text contrast */
-        .text-gray-500 {
-            color: #6b7280 !important;
-        }
-        
-        .text-gray-600 {
-            color: #4b5563 !important;
-        }
-        
-        .text-gray-700 {
-            color: #374151 !important;
-        }
-        
-        .text-gray-800 {
-            color: #1f2937 !important;
+        /* Layout amélioré */
+        .app-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+            transition: var(--transition);
         }
 
-        /* Modal improvements */
-        .modal-text {
-            color: #1f2937 !important;
-            font-weight: 500 !important;
-            font-size: 14px !important;
-        }
-        
-        .modal-title {
-            color: #111827 !important;
-            font-weight: 600 !important;
-            font-size: 18px !important;
+        .app-layout.sidebar-collapsed {
+            grid-template-columns: 60px 1fr;
         }
 
-        /* Better input styling */
-        input, select, textarea {
-            font-weight: 400 !important;
-            color: #1f2937 !important;
-            font-size: 14px !important;
+        @media (max-width: 768px) {
+            .app-layout {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr auto;
+            }
+            
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -100%;
+                height: 100vh;
+                width: 80vw;
+                z-index: 1000;
+                transition: left 0.3s ease;
+            }
+            
+            .sidebar.open {
+                left: 0;
+            }
+            
+            .sidebar-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 999;
+            }
         }
 
-        /* Document viewer improvements */
-        .document-container {
-            background: #ffffff;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Better iframe styling */
-        .document-iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            min-height: 600px;
+        /* Viewer de document amélioré */
+        .document-viewer {
+            position: relative;
             background: white;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
 
-        /* Fallback document viewer */
-        .document-fallback {
-            padding: 2rem;
+        .document-canvas-container {
+            position: relative;
+            overflow: auto;
+            height: 100%;
+            background: var(--gray-50);
+        }
+
+        .pdf-page {
+            position: relative;
+            margin: 20px auto;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+
+        /* Highlighting des entités */
+        .entity-highlight {
+            position: absolute;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: var(--transition);
+            pointer-events: auto;
+            border: 2px solid transparent;
+        }
+
+        .entity-highlight:hover {
+            transform: scale(1.02);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .entity-highlight.selected {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Types d'entités avec couleurs */
+        .entity-EMAIL { background: rgba(59, 130, 246, 0.2); }
+        .entity-PHONE { background: rgba(16, 185, 129, 0.2); }
+        .entity-PERSON { background: rgba(139, 92, 246, 0.2); }
+        .entity-ORG { background: rgba(245, 158, 11, 0.2); }
+        .entity-ADDRESS { background: rgba(239, 68, 68, 0.2); }
+        .entity-DATE { background: rgba(168, 85, 247, 0.2); }
+        .entity-LOC { background: rgba(34, 197, 94, 0.2); }
+        .entity-IBAN { background: rgba(156, 163, 175, 0.2); }
+        .entity-SIREN { background: rgba(251, 191, 36, 0.2); }
+        .entity-SIRET { background: rgba(14, 165, 233, 0.2); }
+
+        /* Toolbar du viewer */
+        .viewer-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: white;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toolbar-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid var(--gray-100);
+            background: white;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .toolbar-button:hover {
+            background: var(--gray-50);
+            border-color: var(--primary-blue);
+        }
+
+        .toolbar-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Sidebar améliorée */
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .tab-navigation {
+            display: flex;
+            border-bottom: 1px solid var(--gray-100);
+            background: var(--gray-50);
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px 8px;
             text-align: center;
-            background: #f9fafb;
-            border: 2px dashed #d1d5db;
-            border-radius: 8px;
-            margin: 1rem;
-        }
-
-        .document-link {
-            display: inline-block;
-            padding: 12px 24px;
-            background: #3b82f6;
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            margin-top: 1rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 13px;
             font-weight: 500;
-            transition: all 0.2s ease;
         }
 
-        .document-link:hover {
-            background: #2563eb;
-            transform: translateY(-1px);
+        .tab-button.active {
+            background: white;
+            color: var(--primary-blue);
+            border-bottom: 2px solid var(--primary-blue);
+        }
+
+        .tab-button:hover:not(.active) {
+            background: white;
+            color: var(--gray-800);
+        }
+
+        /* Listes d'entités améliorées */
+        .entity-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .entity-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid var(--gray-100);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .entity-item:hover {
+            background: var(--gray-50);
+        }
+
+        .entity-item.selected {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid var(--primary-blue);
+        }
+
+        .entity-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            max-width: 400px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success { border-left: 4px solid var(--success-green); }
+        .toast.error { border-left: 4px solid var(--error-red); }
+        .toast.warning { border-left: 4px solid var(--warning-orange); }
+        .toast.info { border-left: 4px solid var(--primary-blue); }
+
+        /* Modal amélioré */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow: auto;
+        }
+
+        .modal-overlay.show .modal-content {
+            transform: scale(1);
+        }
+
+        /* Floating action button pour mobile */
+        .fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            transition: var(--transition);
+            z-index: 100;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+        }
+
+        /* Loading states */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(2px);
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--gray-100);
+            border-top: 3px solid var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Animations */
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.3s ease;
+        }
+        .fade-enter-from, .fade-leave-to {
+            opacity: 0;
+        }
+
+        .slide-enter-active, .slide-leave-active {
+            transition: transform 0.3s ease;
+        }
+        .slide-enter-from, .slide-leave-to {
+            transform: translateY(-10px);
         }
     </style>
 </head>
 <body class="bg-gray-50">
     <div id="app">
-        <div class="flex flex-col min-h-screen">
+        <div class="app-layout" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
             <!-- Header -->
-            <header class="app-header px-4 py-2 flex items-center justify-between">
-                <h1 class="text-xl font-semibold">Interface d'anonymisation</h1>
-                <div class="flex items-center space-x-2">
-                    <button class="text-white px-3 py-1 bg-blue-600 rounded hover:bg-blue-700 transition-colors" 
-                            @click="changeView('original')"
-                            :class="{ 'bg-blue-800': currentView === 'original' }">
-                        Original
+            <header class="col-span-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button @click="toggleSidebar" class="lg:hidden">
+                        <i class="fas fa-bars text-xl"></i>
                     </button>
-                    <button class="text-white px-3 py-1 bg-blue-600 rounded hover:bg-blue-700 transition-colors" 
+                    <h1 class="text-xl font-semibold">Interface d'anonymisation avancée</h1>
+                    <div class="hidden md:flex items-center space-x-2 text-sm">
+                        <span>Mode: {{ processingMode.toUpperCase() }}</span>
+                        <span>•</span>
+                        <span>{{ entities.length }} entités</span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-3">
+                    <!-- Boutons de vue -->
+                    <div class="flex bg-white/20 rounded-lg p-1">
+                        <button 
+                            @click="changeView('original')"
+                            :class="['px-3 py-1 rounded text-sm font-medium transition-colors', 
+                                     currentView === 'original' ? 'bg-white text-blue-600' : 'text-white hover:bg-white/20']">
+                            Original
+                        </button>
+                        <button 
                             @click="changeView('anonymized')"
-                            :class="{ 'bg-blue-800': currentView === 'anonymized' }">
-                        Anonymisé
+                            :class="['px-3 py-1 rounded text-sm font-medium transition-colors', 
+                                     currentView === 'anonymized' ? 'bg-white text-blue-600' : 'text-white hover:bg-white/20']">
+                            Anonymisé
+                        </button>
+                    </div>
+                    
+                    <!-- Actions rapides -->
+                    <button @click="undo" :disabled="!canUndo" class="p-2 rounded hover:bg-white/20 disabled:opacity-50" title="Annuler (Ctrl+Z)">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button @click="redo" :disabled="!canRedo" class="p-2 rounded hover:bg-white/20 disabled:opacity-50" title="Rétablir (Ctrl+Y)">
+                        <i class="fas fa-redo"></i>
                     </button>
                 </div>
             </header>
 
-            <div class="flex flex-1 overflow-hidden">
-                <!-- Sidebar -->
-                <aside class="sidebar w-80 p-4 overflow-y-auto bg-white border-r">
-                    <!-- Tabs -->
-                    <div class="flex border-b mb-4">
-                        <button v-for="tab in tabs" 
-                                :key="tab.id"
-                                @click="activeTab = tab.id"
-                                :class="['flex-1 px-3 py-2 text-sm font-medium border-b-2 transition-colors', 
-                                         activeTab === tab.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700']">
-                            <i :class="tab.icon + ' mr-1'"></i>
-                            {% raw %}{{ tab.label }}{% endraw %}
-                        </button>
-                    </div>
+            <!-- Sidebar -->
+            <aside class="sidebar bg-white border-r overflow-hidden flex flex-col" :class="{ 'open': sidebarOpen }">
+                <div class="sidebar-header">
+                    <h2 class="font-semibold text-gray-800">Outils d'annotation</h2>
+                    <button @click="collapseSidebar" class="hidden lg:block p-1 hover:bg-gray-100 rounded">
+                        <i class="fas fa-chevron-left text-gray-500"></i>
+                    </button>
+                </div>
 
-                    <!-- Tab Content -->
-                    <div v-show="activeTab === 'entities'" class="space-y-4">
-                        <div class="flex items-center justify-between">
-                            <h3 class="font-semibold text-gray-800">Entités détectées</h3>
-                            <span class="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">{% raw %}{{ entities.length }}{% endraw %}</span>
-                        </div>
-                        
-                        <div class="space-y-2 max-h-64 overflow-y-auto">
-                            <div v-for="entity in entities" 
-                                 :key="entity.id" 
-                                 class="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                                 @click="selectEntity(entity)">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <div class="font-medium text-sm" style="color: #1f2937 !important; font-weight: 500 !important;">{% raw %}{{ entity.value }}{% endraw %}</div>
-                                        <div class="text-xs text-gray-500" style="color: #6b7280 !important;">{% raw %}{{ entity.type }}{% endraw %}</div>
-                                    </div>
-                                    <div class="flex space-x-2">
-                                        <button @click.stop="editEntity(entity)" 
-                                                class="text-blue-600 hover:text-blue-800">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button @click.stop="deleteEntity(entity.id)" 
-                                                class="text-red-600 hover:text-red-800">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
+                <!-- Navigation par onglets -->
+                <div class="tab-navigation">
+                    <button v-for="tab in tabs" 
+                            :key="tab.id"
+                            @click="activeTab = tab.id"
+                            :class="['tab-button', { active: activeTab === tab.id }]">
+                        <i :class="tab.icon + ' mr-1'"></i>
+                        <span v-if="!sidebarCollapsed">{{ tab.label }}</span>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-hidden" v-if="!sidebarCollapsed">
+                    <!-- Onglet Entités -->
+                    <div v-show="activeTab === 'entities'" class="h-full flex flex-col">
+                        <div class="p-4 border-b">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-semibold text-gray-800">Entités détectées</h3>
+                                <div class="flex items-center space-x-2">
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                                        {{ entities.length }}
+                                    </span>
+                                    <button @click="refreshEntities" class="p-1 hover:bg-gray-100 rounded" title="Actualiser">
+                                        <i class="fas fa-sync text-gray-500 text-sm"></i>
+                                    </button>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="border-t pt-4">
-                            <button @click="showAddEntityModal = true" 
-                                    class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                                <i class="fas fa-plus mr-2"></i>
-                                Ajouter une entité
-                            </button>
-                        </div>
-                    </div>
-
-                    <div v-show="activeTab === 'groups'" class="space-y-4">
-                        <div class="flex items-center justify-between">
-                            <h3 class="font-semibold text-gray-800">Groupes</h3>
-                            <span class="px-2 py-1 bg-green-100 text-green-800 text-sm rounded-full">{% raw %}{{ groups.length }}{% endraw %}</span>
-                        </div>
-                        
-                        <div class="space-y-2">
-                            <div v-for="group in groups" 
-                                 :key="group.id" 
-                                 class="p-3 border rounded-lg hover:bg-gray-50 transition-colors">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <div class="font-medium text-sm">{% raw %}{{ group.name }}{% endraw %}</div>
-                                        <div class="text-xs text-gray-500">{% raw %}{{ group.entities.length }}{% endraw %} entités</div>
-                                    </div>
-                                    <button @click="deleteGroup(group.id)" 
-                                            class="text-red-600 hover:text-red-800">
-                                        <i class="fas fa-trash"></i>
+                            
+                            <!-- Barre de recherche et filtres -->
+                            <div class="space-y-2">
+                                <div class="relative">
+                                    <input v-model="searchTerm" 
+                                           @input="performSearch"
+                                           placeholder="Rechercher une entité..." 
+                                           class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                                </div>
+                                
+                                <div class="flex flex-wrap gap-1">
+                                    <button v-for="type in uniqueEntityTypes" 
+                                            :key="type"
+                                            @click="toggleFilter(type)"
+                                            :class="['px-2 py-1 text-xs rounded-full transition-colors', 
+                                                     activeFilters.includes(type) ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200']">
+                                        {{ type }}
                                     </button>
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Liste des entités -->
+                        <div class="entity-list flex-1">
+                            <div v-if="filteredEntities.length === 0" class="p-4 text-center text-gray-500 text-sm">
+                                <i class="fas fa-search text-2xl mb-2 opacity-50"></i>
+                                <p>Aucune entité trouvée</p>
+                            </div>
+                            
+                            <div v-for="entity in filteredEntities" 
+                                 :key="entity.id" 
+                                 @click="selectEntity(entity)"
+                                 @mouseenter="highlightEntity(entity)"
+                                 @mouseleave="unhighlightEntity(entity)"
+                                 :class="['entity-item', { selected: selectedEntityId === entity.id }]">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span :class="['entity-badge', getEntityBadgeClass(entity.type)]">
+                                            {{ entity.type }}
+                                        </span>
+                                        <div class="flex space-x-1">
+                                            <button @click.stop="editEntity(entity)" 
+                                                    class="p-1 hover:bg-gray-200 rounded text-blue-600 text-xs" title="Modifier">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button @click.stop="deleteEntity(entity.id)" 
+                                                    class="p-1 hover:bg-gray-200 rounded text-red-600 text-xs" title="Supprimer">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p class="text-sm text-gray-800 font-medium truncate">{{ entity.value }}</p>
+                                    <div class="flex items-center justify-between text-xs text-gray-500 mt-1">
+                                        <span v-if="entity.page">Page {{ entity.page }}</span>
+                                        <span v-if="entity.confidence">{{ Math.round(entity.confidence * 100) }}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Actions des entités -->
+                        <div class="p-4 border-t bg-gray-50">
+                            <button @click="showAddEntityModal = true" 
+                                    class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                                <i class="fas fa-plus mr-2"></i>
+                                Ajouter une entité
+                            </button>
+                            
+                            <div v-if="selectedEntities.length > 0" class="mt-2 flex space-x-2">
+                                <button @click="deleteSelectedEntities" 
+                                        class="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm">
+                                    <i class="fas fa-trash mr-1"></i>
+                                    Supprimer ({{ selectedEntities.length }})
+                                </button>
+                                <button @click="groupSelectedEntities" 
+                                        class="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm">
+                                    <i class="fas fa-layer-group mr-1"></i>
+                                    Grouper
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
-                        <div class="border-t pt-4">
+                    <!-- Onglet Groupes -->
+                    <div v-show="activeTab === 'groups'" class="h-full flex flex-col p-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold text-gray-800">Groupes d'entités</h3>
+                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+                                {{ groups.length }}
+                            </span>
+                        </div>
+                        
+                        <div class="space-y-3 flex-1 overflow-y-auto">
+                            <div v-for="group in groups" 
+                                 :key="group.id" 
+                                 class="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-medium text-gray-800">{{ group.name }}</h4>
+                                    <div class="flex space-x-1">
+                                        <button @click="editGroup(group)" 
+                                                class="p-1 hover:bg-gray-200 rounded text-blue-600 text-xs">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button @click="deleteGroup(group.id)" 
+                                                class="p-1 hover:bg-gray-200 rounded text-red-600 text-xs">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <p class="text-sm text-gray-600">{{ group.entities.length }} entité(s)</p>
+                                <div class="flex flex-wrap gap-1 mt-2">
+                                    <span v-for="entityId in group.entities.slice(0, 3)" 
+                                          :key="entityId"
+                                          class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                                        {{ getEntityById(entityId)?.value.substring(0, 10) }}...
+                                    </span>
+                                    <span v-if="group.entities.length > 3" 
+                                          class="px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded">
+                                        +{{ group.entities.length - 3 }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
                             <button @click="showAddGroupModal = true" 
-                                    class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                    class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
                                 <i class="fas fa-plus mr-2"></i>
                                 Créer un groupe
                             </button>
                         </div>
                     </div>
 
-                    <div v-show="activeTab === 'search'" class="space-y-4">
-                        <div>
-                            <h3 class="font-semibold text-gray-800 mb-3">Recherche</h3>
-                            <input v-model="searchTerm" 
-                                   @input="performSearch"
-                                   placeholder="Rechercher dans le document..." 
-                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <!-- Onglet Recherche -->
+                    <div v-show="activeTab === 'search'" class="h-full flex flex-col p-4">
+                        <h3 class="font-semibold text-gray-800 mb-4">Recherche avancée</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Recherche textuelle</label>
+                                <input v-model="advancedSearch.text" 
+                                       placeholder="Rechercher dans le document..." 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Type d'entité</label>
+                                <select v-model="advancedSearch.type" 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Tous les types</option>
+                                    <option v-for="type in uniqueEntityTypes" :key="type" :value="type">{{ type }}</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Niveau de confiance</label>
+                                <input v-model="advancedSearch.confidence" 
+                                       type="range" min="0" max="1" step="0.1"
+                                       class="w-full">
+                                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>0%</span>
+                                    <span>{{ Math.round(advancedSearch.confidence * 100) }}%</span>
+                                    <span>100%</span>
+                                </div>
+                            </div>
+                            
+                            <button @click="performAdvancedSearch" 
+                                    class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium">
+                                <i class="fas fa-search mr-2"></i>
+                                Rechercher
+                            </button>
                         </div>
                         
-                        <div v-if="searchResults.length > 0" class="space-y-2 max-h-48 overflow-y-auto">
-                            <div v-for="result in searchResults" 
-                                 :key="result.id" 
-                                 class="p-2 text-sm border rounded hover:bg-gray-50">
-                                {% raw %}{{ result.value }}{% endraw %}
+                        <div v-if="searchResults.length > 0" class="mt-4 flex-1 overflow-y-auto">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">Résultats ({{ searchResults.length }})</h4>
+                            <div class="space-y-2">
+                                <div v-for="result in searchResults" 
+                                     :key="result.id"
+                                     @click="selectEntity(result)"
+                                     class="p-2 border border-gray-200 rounded cursor-pointer hover:bg-gray-50 transition-colors">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm font-medium">{{ result.value }}</span>
+                                        <span class="text-xs text-gray-500">{{ result.type }}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div v-show="activeTab === 'rules'" class="space-y-4">
-                        <h3 class="font-semibold text-gray-800">Règles d'anonymisation</h3>
-                        <div class="text-sm text-gray-600">
-                            Configuration des règles de remplacement et des styles d'anonymisation.
-                        </div>
-                    </div>
-                </aside>
-
-                <!-- Main Content Area -->
-                <main class="flex-1 p-4 overflow-hidden">
-                    <div class="viewer-container h-full flex items-center justify-center bg-white rounded-lg border">
-                        <div v-if="isLoading" class="text-center">
-                            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                            <div class="mt-2 text-gray-600">Chargement du document...</div>
-                        </div>
-                        <div v-else-if="error" class="text-center text-red-600">
-                            <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
-                            <div>{% raw %}{{ error }}{% endraw %}</div>
-                        </div>
-                        <div v-else id="viewer" class="w-full h-full overflow-auto">
-                            <div v-if="documentUrl" class="document-container m-4">
-                                <!-- Debug info -->
-                                <div class="bg-blue-50 border border-blue-200 rounded p-2 mb-2 text-sm">
-                                    <strong>Document:</strong> {% raw %}{{ documentUrl }}{% endraw %}
-                                </div>
-                                
-                                <!-- Try iframe first -->
-                                <iframe :src="documentUrl" 
-                                        class="document-iframe"
-                                        @error="showDocumentFallback = true"
-                                        v-if="!showDocumentFallback">
-                                </iframe>
-                                
-                                <!-- Fallback for iframe issues -->
-                                <div v-if="showDocumentFallback" class="document-fallback">
-                                    <i class="fas fa-file-alt text-4xl text-gray-400 mb-4"></i>
-                                    <h3 class="text-lg font-semibold text-gray-800 mb-2" style="color: #1f2937 !important;">Document prêt</h3>
-                                    <p class="text-gray-600 mb-4" style="color: #4b5563 !important;">
-                                        Le document a été traité avec succès. Cliquez sur le lien ci-dessous pour l'ouvrir.
-                                    </p>
-                                    <a :href="documentUrl" target="_blank" class="document-link">
-                                        <i class="fas fa-external-link-alt mr-2"></i>
-                                        Ouvrir le document
-                                    </a>
-                                </div>
-                                
-                                <!-- Show fallback after 3 seconds if iframe doesn't load -->
-                                <div class="mt-4 text-center">
-                                    <button @click="showDocumentFallback = true" 
-                                            class="text-blue-600 hover:text-blue-800 text-sm underline">
-                                        Le document ne s'affiche pas ? Cliquez ici pour le télécharger
+                    <!-- Onglet Règles -->
+                    <div v-show="activeTab === 'rules'" class="h-full flex flex-col p-4">
+                        <h3 class="font-semibold text-gray-800 mb-4">Configuration</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Mode d'anonymisation</label>
+                                <select v-model="anonymizationMode" 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="replace">Remplacement par type</option>
+                                    <option value="mask">Masquage partiel</option>
+                                    <option value="remove">Suppression complète</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Préréglages</label>
+                                <div class="space-y-2">
+                                    <button v-for="preset in presets" 
+                                            :key="preset.id"
+                                            @click="applyPreset(preset)"
+                                            class="w-full p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                        <div class="font-medium text-sm">{{ preset.name }}</div>
+                                        <div class="text-xs text-gray-500 mt-1">{{ preset.description }}</div>
                                     </button>
                                 </div>
                             </div>
-                            <div v-else class="flex items-center justify-center h-full text-gray-500">
-                                <div class="text-center">
-                                    <i class="fas fa-file-alt text-4xl mb-4 text-gray-300"></i>
-                                    <div style="color: #6b7280 !important;">Aucun document à afficher</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </main>
-            </div>
-
-            <!-- Footer -->
-            <footer class="p-4 bg-white border-t flex items-center justify-between">
-                <div class="flex items-center space-x-4 text-sm text-gray-600">
-                    <div>Entités: {% raw %}{{ entities.length }}{% endraw %}</div>
-                    <div>Groupes: {% raw %}{{ groups.length }}{% endraw %}</div>
-                    <div v-if="processingMode">Mode: {% raw %}{{ processingMode }}{% endraw %}</div>
-                </div>
-                
-                <div class="flex items-center space-x-3">
-                    <div class="flex items-center space-x-2">
-                        <button @click="zoomOut" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded">
-                            <i class="fas fa-search-minus"></i>
-                        </button>
-                        <span class="text-sm">{% raw %}{{ Math.round(zoom * 100) }}{% endraw %}%</span>
-                        <button @click="zoomIn" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded">
-                            <i class="fas fa-search-plus"></i>
-                        </button>
-                    </div>
-                    
-                    <button @click="exportDocument" 
-                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                        <i class="fas fa-download mr-2"></i>
-                        Télécharger DOCX
-                    </button>
-                </div>
-            </footer>
-        </div>
-
-        <!-- Add Entity Modal -->
-        <div v-if="showAddEntityModal" 
-             class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white rounded-lg p-6 w-full max-w-md">
-                <h3 class="text-lg font-semibold mb-4">Ajouter une entité</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Texte</label>
-                        <input v-model="newEntity.value" 
-                               class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                               placeholder="Texte à anonymiser">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                        <select v-model="newEntity.type" 
-                                class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">Choisir un type</option>
-                            <option v-for="type in entityTypes" :key="type" :value="type">{{ type }}</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="flex space-x-3 mt-6">
-                    <button @click="addEntity" 
-                            class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        Ajouter
-                    </button>
-                    <button @click="showAddEntityModal = false" 
-                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
-                        Annuler
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Add Group Modal -->
-        <div v-if="showAddGroupModal" 
-             class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white rounded-lg p-6 w-full max-w-md">
-                <h3 class="text-lg font-semibold mb-4">Créer un groupe</h3>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Nom du groupe</label>
-                    <input v-model="newGroup.name" 
-                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                           placeholder="Nom du groupe">
-                </div>
-                <div class="flex space-x-3 mt-6">
-                    <button @click="addGroup" 
-                            class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                        Créer
-                    </button>
-                    <button @click="showAddGroupModal = false" 
-                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
-                        Annuler
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <script src="https://unpkg.com/pinia@2/dist/pinia.iife.js"></script>
-    <script>
-        const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
-
-        createApp({
-            setup() {
-                // Reactive data
-                const jobId = ref(new URLSearchParams(window.location.search).get('job_id'));
-                const isLoading = ref(true);
-                const error = ref(null);
-                const entities = ref([]);
-                const groups = ref([]);
-                const currentView = ref('anonymized');
-                const processingMode = ref('regex');
-                const documentUrl = ref(null);
-                const zoom = ref(1.0);
-                const activeTab = ref('entities');
-                const searchTerm = ref('');
-                const searchResults = ref([]);
-                const showDocumentFallback = ref(false);
-                
-                // Modal states
-                const showAddEntityModal = ref(false);
-                const showAddGroupModal = ref(false);
-                
-                // Form data
-                const newEntity = reactive({
-                    value: '',
-                    type: ''
-                });
-                const newGroup = reactive({
-                    name: ''
-                });
-
-                // Constants
-                const tabs = [
-                    { id: 'entities', label: 'Entités', icon: 'fas fa-tags' },
-                    { id: 'groups', label: 'Groupes', icon: 'fas fa-layer-group' },
-                    { id: 'search', label: 'Recherche', icon: 'fas fa-search' },
-                    { id: 'rules', label: 'Règles', icon: 'fas fa-cogs' }
-                ];
-
-                const entityTypes = [
-                    'EMAIL', 'PHONE', 'DATE', 'ADDRESS', 'PERSON', 'ORG', 'LOC', 
-                    'IBAN', 'SIREN', 'SIRET'
-                ];
-
-                // Computed
-                const documentStatus = computed(() => ({
-                    totalEntities: entities.value.length,
-                    totalGroups: groups.value.length
-                }));
-
-                // Methods
-                const loadData = async () => {
-                    if (!jobId.value) {
-                        error.value = 'Job ID manquant';
-                        window.location.href = '/';
-                        return;
-                    }
-
-                    try {
-                        isLoading.value = true;
-                        console.log('Loading data for job:', jobId.value);
-                        
-                        // Load job status
-                        const statusResponse = await fetch(`/status/${jobId.value}`);
-                        if (!statusResponse.ok) throw new Error('Job not found');
-                        const statusData = await statusResponse.json();
-                        console.log('Status data:', statusData);
-                        
-                        if (statusData.status !== 'completed') {
-                            throw new Error('Job not completed');
-                        }
-                        
-                        processingMode.value = statusData.mode || 'regex';
-                        
-                        if (statusData.result) {
-                            documentUrl.value = currentView.value === 'original' 
-                                ? statusData.result.original_url 
-                                : statusData.result.anonymized_url;
-                            console.log('Document URL:', documentUrl.value);
-                            // Reset fallback when URL changes
-                            showDocumentFallback.value = false;
                             
-                            // Load entities from result if available
-                            if (statusData.result.entities && statusData.result.entities.length > 0) {
-                                console.log('Loading entities from result:', statusData.result.entities.length);
-                                entities.value = statusData.result.entities.map(entity => ({
-                                    id: entity.id || `entity_${Math.random().toString(36).substr(2, 9)}`,
-                                    ...entity
-                                }));
-                            }
-                        }
-                        
-                        // Try to load entities from API
-                        try {
-                            const entitiesResponse = await fetch(`/entities/${jobId.value}`);
-                            if (entitiesResponse.ok) {
-                                const apiEntities = await entitiesResponse.json();
-                                console.log('API entities:', apiEntities.length);
-                                if (apiEntities.length > 0) {
-                                    entities.value = apiEntities;
-                                }
-                            }
-                        } catch (entErr) {
-                            console.log('Could not load entities from API:', entErr);
-                        }
-                        
-                        // Try to load groups from API
-                        try {
-                            const groupsResponse = await fetch(`/groups/${jobId.value}`);
-                            if (groupsResponse.ok) {
-                                const apiGroups = await groupsResponse.json();
-                                console.log('API groups:', apiGroups.length);
-                                groups.value = apiGroups;
-                            }
-                        } catch (grpErr) {
-                            console.log('Could not load groups from API:', grpErr);
-                        }
-                        
-                        console.log('Final loaded data:', {
-                            entities: entities.value.length,
-                            groups: groups.value.length,
-                            documentUrl: documentUrl.value
-                        });
-                        
-                    } catch (err) {
-                        console.error('Error loading data:', err);
-                        error.value = err.message;
-                    } finally {
-                        isLoading.value = false;
-                    }
-                };
-
-                const changeView = async (view) => {
-                    currentView.value = view;
-                    // Update document URL based on view
-                    try {
-                        const statusResponse = await fetch(`/status/${jobId.value}`);
-                        const statusData = await statusResponse.json();
-                        if (statusData.result) {
-                            documentUrl.value = view === 'original' 
-                                ? statusData.result.original_url 
-                                : statusData.result.anonymized_url;
-                            // Reset fallback when changing view
-                            showDocumentFallback.value = false;
-                        }
-                    } catch (err) {
-                        console.error('Error changing view:', err);
-                    }
-                };
-
-                const addEntity = async () => {
-                    if (!newEntity.value || !newEntity.type) return;
-                    
-                    try {
-                        const response = await fetch(`/entities/${jobId.value}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                id: Date.now().toString(),
-                                value: newEntity.value,
-                                type: newEntity.type,
-                                start: 0,
-                                end: 0
-                            })
-                        });
-                        
-                        if (response.ok) {
-                            const savedEntity = await response.json();
-                            entities.value.push(savedEntity);
-                            newEntity.value = '';
-                            newEntity.type = '';
-                            showAddEntityModal.value = false;
-                        }
-                    } catch (err) {
-                        console.error('Error adding entity:', err);
-                    }
-                };
-
-                const deleteEntity = async (entityId) => {
-                    try {
-                        const response = await fetch(`/entities/${jobId.value}/${entityId}`, {
-                            method: 'DELETE'
-                        });
-                        
-                        if (response.ok) {
-                            entities.value = entities.value.filter(e => e.id !== entityId);
-                        }
-                    } catch (err) {
-                        console.error('Error deleting entity:', err);
-                    }
-                };
-
-                const editEntity = (entity) => {
-                    const newValue = prompt('Nouvelle valeur:', entity.value);
-                    if (newValue && newValue !== entity.value) {
-                        // Update entity
-                        entity.value = newValue;
-                        // Save to server
-                        fetch(`/entities/${jobId.value}/${entity.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(entity)
-                        }).catch(err => console.error('Error updating entity:', err));
-                    }
-                };
-
-                const selectEntity = (entity) => {
-                    console.log('Selected entity:', entity);
-                };
-
-                const addGroup = async () => {
-                    if (!newGroup.name) return;
-                    
-                    try {
-                        const response = await fetch(`/groups/${jobId.value}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                id: Date.now().toString(),
-                                name: newGroup.name,
-                                entities: []
-                            })
-                        });
-                        
-                        if (response.ok) {
-                            const savedGroup = await response.json();
-                            groups.value.push(savedGroup);
-                            newGroup.name = '';
-                            showAddGroupModal.value = false;
-                        }
-                    } catch (err) {
-                        console.error('Error adding group:', err);
-                    }
-                };
-
-                const deleteGroup = async (groupId) => {
-                    try {
-                        const response = await fetch(`/groups/${jobId.value}/${groupId}`, {
-                            method: 'DELETE'
-                        });
-                        
-                        if (response.ok) {
-                            groups.value = groups.value.filter(g => g.id !== groupId);
-                        }
-                    } catch (err) {
-                        console.error('Error deleting group:', err);
-                    }
-                };
-
-                const performSearch = () => {
-                    if (!searchTerm.value.trim()) {
-                        searchResults.value = [];
-                        return;
-                    }
-                    
-                    const term = searchTerm.value.toLowerCase();
-                    searchResults.value = entities.value.filter(entity => 
-                        entity.value.toLowerCase().includes(term) ||
-                        entity.type.toLowerCase().includes(term)
-                    );
-                };
-
-                const zoomIn = () => {
-                    zoom.value = Math.min(3.0, zoom.value + 0.1);
-                };
-
-                const zoomOut = () => {
-                    zoom.value = Math.max(0.3, zoom.value - 0.1);
-                };
-
-                const exportDocument = async () => {
-                    try {
-                        const response = await fetch(`/export/${jobId.value}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                watermark: null,
-                                audit: false
-                            })
-                        });
-                        
-                        if (response.ok) {
-                            const result = await response.json();
-                            if (result.download_url) {
-                                window.open(result.download_url, '_blank');
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Error exporting document:', err);
-                    }
-                };
-
-                // Initialize
-                onMounted(() => {
-                    if (!jobId.value) {
-                        window.location.href = '/';
-                        return;
-                    }
-                    loadData();
-                });
-
-                // Return reactive data and methods
-                return {
-                    // Data
-                    jobId,
-                    isLoading,
-                    error,
-                    entities,
-                    groups,
-                    currentView,
-                    processingMode,
-                    documentUrl,
-                    zoom,
-                    activeTab,
-                    searchTerm,
-                    searchResults,
-                    showAddEntityModal,
-                    showAddGroupModal,
-                    showDocumentFallback,
-                    newEntity,
-                    newGroup,
-                    tabs,
-                    entityTypes,
-                    documentStatus,
-                    
-                    // Methods
-                    changeView,
-                    addEntity,
-                    deleteEntity,
-                    editEntity,
-                    selectEntity,
-                    addGroup,
-                    deleteGroup,
-                    performSearch,
-                    zoomIn,
-                    zoomOut,
-                    exportDocument
-                };
-            }
-        }).mount('#app');
-    </script>
-</body>
-</html>
+                            <div>
+                                <button @click="showRulesModal = true" 
+                                        class="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium">
+                                    <i class="fas fa-cogs mr-2"></i>
+                                    Configuration avancée
+                                </button>
+                            </div>
+                        </div
